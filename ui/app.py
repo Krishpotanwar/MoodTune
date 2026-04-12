@@ -35,17 +35,6 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# ── inject CSS ─────────────────────────────────────────────────────────────────
-
-_CSS_PATH = Path(__file__).parent / "styles.css"
-if _CSS_PATH.exists():
-    # Use st.markdown with unsafe_allow_html for CSS injection.
-    # st.html() is not available on all Streamlit Cloud deployments.
-    st.markdown(
-        f"<style>{_CSS_PATH.read_text(encoding='utf-8')}</style>",
-        unsafe_allow_html=True,
-    )
-
 # ── paths ──────────────────────────────────────────────────────────────────────
 
 _RAW_CSV    = _PROJECT_ROOT / "data" / "raw"       / "spotify_tracks.csv"
@@ -101,39 +90,6 @@ def _init_state() -> None:
 
 _init_state()
 
-# ── component: progress bar ────────────────────────────────────────────────────
-
-def _progress_bar(current: int, total: int = 4) -> None:
-    pct = int(current / total * 100)
-    st.markdown(
-        f"""
-        <div class="progress-wrapper">
-          <div class="progress-bar" style="width:{pct}%"></div>
-          <span class="progress-label">Step {current} of {total}</span>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-# ── component: song card HTML ──────────────────────────────────────────────────
-
-def _song_card_html(row: pd.Series) -> str:
-    album = str(row.get("album", ""))
-    album_line = f'<p class="card-album">{album}</p>' if album and album != "nan" else ""
-    return f"""
-    <div class="song-card">
-      <div class="card-match">{row['similarity_pct']:.0f}% match</div>
-      <div class="card-track">{row['track_name']}</div>
-      <div class="card-artist">{row['artist_name']}</div>
-      {album_line}
-      <div class="card-features">
-        ⚡&nbsp;{row['energy']:.2f}&emsp;
-        💜&nbsp;{row['valence']:.2f}&emsp;
-        🎵&nbsp;{row['tempo_norm']:.2f}
-      </div>
-    </div>
-    """
-
 # ══════════════════════════════════════════════════════════════════════════════
 # Survey tab
 # ══════════════════════════════════════════════════════════════════════════════
@@ -143,27 +99,20 @@ def _render_survey_tab() -> None:
 
     # ── Step 0: Welcome ────────────────────────────────────────────────────────
     if step == 0:
-        st.markdown(
-            """
-            <div class="hero">
-              <h1>🎵 MoodTune</h1>
-              <p class="hero-subtitle">
-                Tell us how you feel — we'll find your perfect soundtrack.
-              </p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        st.title("🎵 MoodTune")
+        st.caption("Tell us how you feel — we'll find your perfect soundtrack.")
+        st.divider()
         col = st.columns([1, 2, 1])[1]
         with col:
-            if st.button("▶  Start Survey", use_container_width=True, type="primary"):
+            if st.button("▶️  Start Survey", use_container_width=True, type="primary"):
                 st.session_state["step"] = 1
                 st.rerun()
         return
 
     # ── Steps 1–4: One question per step ──────────────────────────────────────
     if 1 <= step <= 4:
-        _progress_bar(step)
+        pct = int(step / 4 * 100)
+        st.progress(pct / 100, text=f"Step {step} of 4")
         q = SURVEY_QUESTIONS[step - 1]
         st.markdown(f"### {q['question']}")
 
@@ -199,7 +148,6 @@ def _render_survey_tab() -> None:
 
     # ── Step 5: Compute and show results ──────────────────────────────────────
     if step == 5:
-        _progress_bar(4, 4)
         answers = st.session_state["answers"]
 
         if st.session_state["user_vector"] is None:
@@ -232,15 +180,11 @@ def _render_results() -> None:
     # ── Mood badge + retake button ─────────────────────────────────────────────
     col_badge, col_retake = st.columns([3, 1])
     with col_badge:
-        st.markdown(
-            f'<div class="mood-badge">'
-            f'{user_vector["mood_emoji"]}&nbsp; Mood detected: '
-            f'<b>{user_vector["mood_label"]}</b>'
-            f'</div>',
-            unsafe_allow_html=True,
+        st.success(
+            f"{user_vector['mood_emoji']} **Mood: {user_vector['mood_label']}**"
         )
     with col_retake:
-        if st.button("↺  Retake Survey", use_container_width=True):
+        if st.button("↺ Retake Survey", use_container_width=True):
             st.session_state.update({
                 "step": 0, "answers": {},
                 "user_vector": None, "results": None, "genre_filter": [],
@@ -251,7 +195,7 @@ def _render_results() -> None:
     if "genre" in df.columns:
         genres = sorted(df["genre"].dropna().unique().tolist())
         selected_genres = st.multiselect(
-            "Filter by genre (optional — leave empty for all genres):",
+            "Filter by genre (optional):",
             options=genres,
             default=st.session_state.get("genre_filter", []),
             placeholder="All genres",
@@ -270,16 +214,27 @@ def _render_results() -> None:
         st.warning("No tracks found for this genre selection. Try removing the filter.")
         return
 
-    # ── Result cards (2-column grid) ──────────────────────────────────────────
+    # ── Result cards (2-column grid using native Streamlit containers) ─────────
     st.markdown("### 🎵 Your Soundtrack")
     left, right = st.columns(2)
     for i, (_, row) in enumerate(results.iterrows()):
         col = left if i % 2 == 0 else right
         with col:
-            st.markdown(_song_card_html(row), unsafe_allow_html=True)
+            with st.container(border=True):
+                st.caption(f"**{row['similarity_pct']:.0f}% match**")
+                st.markdown(f"**{row['track_name']}**")
+                st.caption(row['artist_name'])
+                album = str(row.get("album", ""))
+                if album and album != "nan":
+                    st.caption(f"_{album}_")
+                st.caption(
+                    f"⚡ Energy: {row['energy']:.2f}  "
+                    f"|  💜 Valence: {row['valence']:.2f}  "
+                    f"|  🎵 Tempo: {row['tempo_norm']:.2f}"
+                )
 
     # ── Visualisations ────────────────────────────────────────────────────────
-    st.markdown("---")
+    st.divider()
     st.markdown("### 📊 Visualisations")
     tab_bar, tab_heat, tab_scatter = st.tabs([
         "📊 Mood Comparison",
@@ -306,18 +261,26 @@ def _render_results() -> None:
 
 def _render_data_lab_tab() -> None:
     st.markdown("## 🔬 Data Cleaning Pipeline — Live Demo")
-    st.markdown(
-        "Click **▶ Run Pipeline** to watch each cleaning step execute in real time "
-        "and see exactly how raw data is transformed before training."
+    st.caption(
+        "Click **▶ Run Pipeline** to watch each cleaning step execute in real time."
     )
 
     if not _RAW_CSV.exists():
-        st.error(
-            f"`{_RAW_CSV}` not found.\n\n"
-            "**Download the dataset from Kaggle**, rename the file to "
-            "`spotify_tracks.csv`, and place it at `data/raw/spotify_tracks.csv`:\n\n"
-            "https://www.kaggle.com/datasets/maharshipandya/-spotify-tracks-dataset"
-        )
+        if _DEMO_MODE:
+            st.info(
+                "Running in **demo mode** with a 200-track sample. "
+                "The Data Lab pipeline demo requires the full dataset. "
+                "Download it from "
+                "[Kaggle](https://www.kaggle.com/datasets/maharshipandya/-spotify-tracks-dataset) "
+                "and place it at `data/raw/spotify_tracks.csv`."
+            )
+        else:
+            st.error(
+                f"`{_RAW_CSV}` not found.\n\n"
+                "Download the dataset from Kaggle and place it at "
+                "`data/raw/spotify_tracks.csv`:\n\n"
+                "https://www.kaggle.com/datasets/maharshipandya/-spotify-tracks-dataset"
+            )
         return
 
     if st.button("▶  Run Pipeline", type="primary"):
@@ -349,7 +312,7 @@ def _render_data_lab_tab() -> None:
                     st.caption(f"ℹ️  {s['detail']}")
 
         # ── Before / After comparison ─────────────────────────────────────────
-        st.markdown("---")
+        st.divider()
         st.markdown("### Before vs After (first 5 rows)")
         c_raw, c_clean = st.columns(2)
         with c_raw:
@@ -360,7 +323,7 @@ def _render_data_lab_tab() -> None:
             st.dataframe(clean_df.head(5), use_container_width=True)
 
         # ── Summary metrics ────────────────────────────────────────────────────
-        st.markdown("---")
+        st.divider()
         st.markdown("### Summary")
         raw_n   = len(raw_df)
         clean_n = len(clean_df)
@@ -426,7 +389,7 @@ src/mood_mapper.py ──► target vector          │
 
 | Layer | Technology |
 |-------|-----------|
-| UI | Streamlit 1.33 |
+| UI | Streamlit 1.33+ |
 | ML | scikit-learn NearestNeighbors (cosine) |
 | Data | pandas 2.2 · numpy 1.26 |
 | Charts | Plotly 5.22 · Seaborn 0.13 |
@@ -454,15 +417,7 @@ by **maharshipandya** on Kaggle (CC0 Public Domain license).
 # Main layout
 # ══════════════════════════════════════════════════════════════════════════════
 
-st.markdown('<div class="app-header"><h2>🎵 MoodTune</h2></div>', unsafe_allow_html=True)
-
-# Check if dataset is available before trying to load it
-if not _RAW_CSV.exists() and not _CLEAN_CSV.exists():
-    st.warning(
-        "⚠️  Dataset not found. Open the **Data Lab** tab for download instructions, "
-        "or place `spotify_tracks.csv` at `data/raw/spotify_tracks.csv` and restart."
-    )
-
+# Demo mode banner — only shown when full dataset is absent
 if _DEMO_MODE:
     st.info(
         "🎭 **Demo mode** — running on a 200-track sample dataset. "
