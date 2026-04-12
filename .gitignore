@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Dataset (download separately from Kaggle — too large to commit)
+data/raw/*.csv
+data/processed/
+
+# Auto-generated logs
+logs/
+
+# Streamlit (only ignore secrets, not config)
+.streamlit/secrets.toml
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
