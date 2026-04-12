@@ -1,0 +1,4 @@
+# System-level packages needed for matplotlib/seaborn rendering on Streamlit Cloud
+# This file is automatically read by Streamlit Community Cloud
+libatlas-base-dev
+gfortran

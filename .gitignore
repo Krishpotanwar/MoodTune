@@ -19,6 +19,10 @@ logs/
 # Streamlit (only ignore secrets, not config)
 .streamlit/secrets.toml
 
+# Terminal session dumps
+musiclog.md
+*.terminal
+
 # IDE
 .vscode/
 .idea/
