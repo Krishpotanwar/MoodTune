@@ -21,7 +21,7 @@ DEFAULT_CLEAN_CSV: Path = Path("data/processed/spotify_tracks_clean.csv")
 
 # Output columns returned by recommend() (album added if present in data)
 _BASE_OUTPUT_COLS: list[str] = [
-    "track_name", "artist_name", "genre",
+    "track_id", "track_name", "artist_name", "genre",
     *FEATURE_COLS,
     "similarity_pct",
 ]

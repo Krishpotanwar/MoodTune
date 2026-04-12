@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 # Make src/ importable regardless of working directory
 _PROJECT_ROOT = Path(__file__).parent.parent
@@ -34,6 +35,12 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed",
 )
+
+# ── inject custom CSS ──────────────────────────────────────────────────────────
+
+_CSS_FILE = Path(__file__).parent / "styles.css"
+if _CSS_FILE.exists():
+    st.markdown(f"<style>{_CSS_FILE.read_text(encoding='utf-8')}</style>", unsafe_allow_html=True)
 
 # ── paths ──────────────────────────────────────────────────────────────────────
 
@@ -214,24 +221,88 @@ def _render_results() -> None:
         st.warning("No tracks found for this genre selection. Try removing the filter.")
         return
 
-    # ── Result cards (2-column grid using native Streamlit containers) ─────────
+    # ── Spotify-style playlist list ───────────────────────────────────────────
     st.markdown("### 🎵 Your Soundtrack")
-    left, right = st.columns(2)
+    st.caption(f"Based on Kaggle Spotify Tracks Dataset · {len(df):,} tracks analysed")
+
+    # Build the playlist HTML with inline styles (components.html renders raw without sanitization)
+    playlist_html = '<div class="playlist-container">'
+    # Header row
+    playlist_html += '''
+    <div class="playlist-header">
+        <span class="ph-num">#</span>
+        <span class="ph-cover"></span>
+        <span class="ph-title">TITLE</span>
+        <span class="ph-album">ALBUM</span>
+        <span class="ph-genre">GENRE</span>
+        <span class="ph-match">MATCH</span>
+        <span class="ph-features">FEATURES</span>
+    </div>
+    '''
+
     for i, (_, row) in enumerate(results.iterrows()):
-        col = left if i % 2 == 0 else right
-        with col:
-            with st.container(border=True):
-                st.caption(f"**{row['similarity_pct']:.0f}% match**")
-                st.markdown(f"**{row['track_name']}**")
-                st.caption(row['artist_name'])
-                album = str(row.get("album", ""))
-                if album and album != "nan":
-                    st.caption(f"_{album}_")
-                st.caption(
-                    f"⚡ Energy: {row['energy']:.2f}  "
-                    f"|  💜 Valence: {row['valence']:.2f}  "
-                    f"|  🎵 Tempo: {row['tempo_norm']:.2f}"
-                )
+        # Generate unique album cover gradient from audio features
+        energy = float(row["energy"])
+        valence = float(row["valence"])
+        tempo = float(row["tempo_norm"])
+        acousticness = float(row["acousticness"])
+
+        # Map features to hue/saturation for a unique cover per song
+        hue1 = int(energy * 300 + 20)         # 20-320 range
+        hue2 = int(valence * 200 + 100)       # 100-300 range
+        sat = int(50 + acousticness * 40)     # 50-90%
+        angle = int(tempo * 360)              # gradient angle
+
+        album = str(row.get("album", ""))
+        album_display = album if album and album != "nan" else "—"
+        genre = str(row.get("genre", ""))
+        track_name = str(row["track_name"])
+        artist = str(row["artist_name"])
+        match_pct = float(row["similarity_pct"])
+
+        # Cover gradient with musical note overlay
+        cover_style = (
+            f"background: linear-gradient({angle}deg, "
+            f"hsl({hue1},{sat}%,35%), "
+            f"hsl({hue2},{sat}%,25%));"
+        )
+
+        # Feature mini-bars
+        e_w = int(energy * 100)
+        v_w = int(valence * 100)
+        t_w = int(tempo * 100)
+
+        # Spotify open link (if track_id exists)
+        track_id = str(row.get("track_id", ""))
+        spotify_link = ""
+        if track_id and track_id != "nan":
+            spotify_link = f'<a href="https://open.spotify.com/track/{track_id}" target="_blank" class="spotify-link" title="Open in Spotify">▶</a>'
+
+        playlist_html += f'''
+        <div class="playlist-row">
+            <span class="pr-num">{i + 1}</span>
+            <div class="pr-cover" style="{cover_style}">
+                <span class="cover-icon">♫</span>
+            </div>
+            <div class="pr-title-block">
+                <div class="pr-track">{track_name} {spotify_link}</div>
+                <div class="pr-artist">{artist}</div>
+            </div>
+            <span class="pr-album">{album_display}</span>
+            <span class="pr-genre">{genre}</span>
+            <span class="pr-match">{match_pct:.0f}%</span>
+            <div class="pr-features">
+                <div class="feat-row"><span class="feat-label">⚡</span><div class="feat-bar"><div class="feat-fill" style="width:{e_w}%"></div></div></div>
+                <div class="feat-row"><span class="feat-label">💜</span><div class="feat-bar"><div class="feat-fill feat-valence" style="width:{v_w}%"></div></div></div>
+                <div class="feat-row"><span class="feat-label">🎵</span><div class="feat-bar"><div class="feat-fill feat-tempo" style="width:{t_w}%"></div></div></div>
+            </div>
+        </div>
+        '''
+
+    playlist_html += '</div>'
+    # Calculate height: header (42px) + rows (62px each) + padding (20px)
+    _playlist_height = 42 + len(results) * 62 + 20
+    _render_styled_html(playlist_html, height=_playlist_height)
 
     # ── Visualisations ────────────────────────────────────────────────────────
     st.divider()
@@ -259,11 +330,62 @@ def _render_results() -> None:
 # Data Lab tab  (professor demo)
 # ══════════════════════════════════════════════════════════════════════════════
 
+def _get_css_text() -> str:
+    """Read the CSS file once (for injecting into components.html iframes)."""
+    css_file = Path(__file__).parent / "styles.css"
+    return css_file.read_text(encoding="utf-8") if css_file.exists() else ""
+
+
+def _render_styled_html(html_body: str, height: int = 200) -> None:
+    """Render HTML inside a components.html iframe with theme CSS."""
+    css = _get_css_text()
+    full_html = f'<style>body {{ background: transparent !important; margin: 0; padding: 0; }} {css}</style>{html_body}'
+    components.html(full_html, height=height, scrolling=False)
+
+
 def _render_data_lab_tab() -> None:
     st.markdown("## 🔬 Data Cleaning Pipeline — Live Demo")
-    st.caption(
-        "Click **▶ Run Pipeline** to watch each cleaning step execute in real time."
-    )
+
+    # ── Kaggle dataset info card ───────────────────────────────────────────────
+    dataset_html = '''
+    <div class="dataset-card">
+        <div class="dataset-header">
+            <span class="dataset-icon">📦</span>
+            <div>
+                <div class="dataset-title">Spotify Tracks Dataset</div>
+                <div class="dataset-source">by maharshipandya · Kaggle · CC0 Public Domain</div>
+            </div>
+        </div>
+        <div class="dataset-stats">
+            <div class="ds-stat"><span class="ds-val">114,000+</span><span class="ds-label">Tracks</span></div>
+            <div class="ds-stat"><span class="ds-val">125</span><span class="ds-label">Genres</span></div>
+            <div class="ds-stat"><span class="ds-val">20+</span><span class="ds-label">Audio Features</span></div>
+            <div class="ds-stat"><span class="ds-val">~20 MB</span><span class="ds-label">CSV Size</span></div>
+        </div>
+        <a href="https://www.kaggle.com/datasets/maharshipandya/-spotify-tracks-dataset" target="_blank" class="dataset-link">View on Kaggle →</a>
+    </div>
+    '''
+    _render_styled_html(dataset_html, height=230)
+
+    # ── Pipeline flow diagram ──────────────────────────────────────────────────
+    pipeline_html = '''
+    <div class="pipeline-flow">
+        <div class="pipe-step"><span class="pipe-num">1</span><span class="pipe-name">Load CSV</span></div>
+        <span class="pipe-arrow">→</span>
+        <div class="pipe-step"><span class="pipe-num">2</span><span class="pipe-name">Dedup</span></div>
+        <span class="pipe-arrow">→</span>
+        <div class="pipe-step"><span class="pipe-num">3</span><span class="pipe-name">Drop Nulls</span></div>
+        <span class="pipe-arrow">→</span>
+        <div class="pipe-step"><span class="pipe-num">4</span><span class="pipe-name">Clip Range</span></div>
+        <span class="pipe-arrow">→</span>
+        <div class="pipe-step"><span class="pipe-num">5</span><span class="pipe-name">Norm Tempo</span></div>
+        <span class="pipe-arrow">→</span>
+        <div class="pipe-step"><span class="pipe-num">6</span><span class="pipe-name">Strip WS</span></div>
+        <span class="pipe-arrow">→</span>
+        <div class="pipe-step pipe-done"><span class="pipe-num">✓</span><span class="pipe-name">Clean</span></div>
+    </div>
+    '''
+    _render_styled_html(pipeline_html, height=65)
 
     if not _RAW_CSV.exists():
         if _DEMO_MODE:
@@ -297,11 +419,33 @@ def _render_data_lab_tab() -> None:
         placeholder.empty()
         st.success(f"Pipeline complete — {len(clean_df):,} clean rows ready.")
 
+        # ── Visual funnel showing data reduction ───────────────────────────────
+        st.markdown("### 📉 Data Funnel")
+        raw_n = len(raw_df)
+        funnel_html = '<div class="funnel-container">'
+        for s in steps:
+            pct = (s["after"] / raw_n * 100) if raw_n else 100
+            bar_col = "var(--pink-400)" if s["removed"] > 0 else "var(--pink-300)"
+            removed_tag = f'<span class="funnel-removed">-{s["removed"]:,}</span>' if s["removed"] > 0 else ''
+            funnel_html += f'''
+            <div class="funnel-row">
+                <span class="funnel-label">{s["name"]}</span>
+                <div class="funnel-bar-bg">
+                    <div class="funnel-bar-fill" style="width:{pct:.1f}%; background:{bar_col};"></div>
+                </div>
+                <span class="funnel-count">{s["after"]:,}</span>
+                {removed_tag}
+            </div>
+            '''
+        funnel_html += '</div>'
+        _render_styled_html(funnel_html, height=40 + len(steps) * 32)
+
         # ── Step-by-step breakdown ─────────────────────────────────────────────
+        st.divider()
         st.markdown("### Cleaning Steps")
         for s in steps:
             removed_badge = f"  ·  **{s['removed']:,} removed**" if s["removed"] > 0 else ""
-            with st.expander(f"Step {s['step']}: {s['name']}{removed_badge}", expanded=True):
+            with st.expander(f"Step {s['step']}: {s['name']}{removed_badge}", expanded=s["removed"] > 0):
                 c1, c2, c3 = st.columns(3)
                 c1.metric("Rows before", f"{s['before']:,}")
                 c2.metric("Rows after",  f"{s['after']:,}")
@@ -325,7 +469,6 @@ def _render_data_lab_tab() -> None:
         # ── Summary metrics ────────────────────────────────────────────────────
         st.divider()
         st.markdown("### Summary")
-        raw_n   = len(raw_df)
         clean_n = len(clean_df)
         s1, s2, s3, s4 = st.columns(4)
         s1.metric("Raw rows",    f"{raw_n:,}")

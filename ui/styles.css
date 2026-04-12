@@ -1,138 +1,230 @@
 /* ============================================================
-   MoodTune — Dark Theme Stylesheet
-   Injected via st.markdown("<style>...</style>")
+   MoodTune — Baby Pink Dark · Liquid Glass Theme
    ============================================================ */
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* ── Design tokens ──────────────────────────────────────────── */
 :root {
-  --bg-main:      #0f0f1a;
-  --bg-card:      #1a1a2e;
-  --bg-accent:    #16213e;
-  --color-accent: #a855f7;
-  --color-cyan:   #06b6d4;
-  --color-text:   #e2e8f0;
-  --color-muted:  #94a3b8;
-  --radius-card:  12px;
-  --shadow-card:  0 4px 24px rgba(0, 0, 0, 0.4);
+  --bg-void:        #06030a;
+  --bg-base:        #0d0711;
+  --bg-elevated:    #130a1a;
+  --glass-bg:       rgba(255, 183, 206, 0.045);
+  --glass-bg-hover: rgba(255, 183, 206, 0.09);
+  --glass-border:   rgba(255, 183, 206, 0.15);
+  --glass-border-hi:rgba(255, 183, 206, 0.35);
+  --glass-blur:     16px;
+
+  --pink-100:  #fff0f5;
+  --pink-200:  #ffd6e7;
+  --pink-300:  #ffb7ce;
+  --pink-400:  #ff8da1;
+  --pink-500:  #ff6b8a;
+  --pink-600:  #e0507a;
+  --pink-glow: rgba(255, 107, 138, 0.35);
+
+  --text-primary:   #f8e8f0;
+  --text-secondary: #c4a0b5;
+  --text-muted:     #8b6b7d;
+
+  --radius-sm:  8px;
+  --radius-md:  14px;
+  --radius-lg:  20px;
+  --radius-pill: 999px;
+
+  --shadow-soft:  0 4px 30px rgba(255, 107, 138, 0.08);
+  --shadow-glow:  0 0 40px rgba(255, 107, 138, 0.18);
+  --shadow-hover: 0 8px 50px rgba(255, 107, 138, 0.25);
+
+  --transition-smooth: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* ── App background ──────────────────────────────────────── */
-.stApp,
-.stApp > header,
+/* ── Global resets & font ───────────────────────────────────── */
+*, *::before, *::after {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+}
+
+/* ── App background: deep void with subtle pink radial ──────── */
+.stApp {
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 10%, rgba(255, 107, 138, 0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 90%, rgba(200, 80, 160, 0.05) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 40% at 50% 50%, rgba(130, 50, 110, 0.04) 0%, transparent 50%),
+    var(--bg-void) !important;
+  color: var(--text-primary) !important;
+  min-height: 100vh;
+}
+
+.stApp > header {
+  background: transparent !important;
+}
+
 section[data-testid="stSidebar"] {
-  background-color: var(--bg-main) !important;
-  color: var(--color-text) !important;
+  background: rgba(13, 7, 17, 0.85) !important;
+  backdrop-filter: blur(var(--glass-blur)) !important;
+  border-right: 1px solid var(--glass-border) !important;
 }
 
-/* Remove white block from main content area */
+/* ── Main content — remove Streamlit white blocks ───────────── */
 .block-container {
   background: transparent !important;
-  padding-top: 1rem !important;
+  padding-top: 1.2rem !important;
+  max-width: 1100px !important;
 }
 
-/* ── Gradient header ─────────────────────────────────────── */
-.app-header {
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-  padding: 1rem 1.5rem;
-  border-radius: var(--radius-card);
-  margin-bottom: 1.25rem;
-  border: 1px solid rgba(168, 85, 247, 0.35);
-  box-shadow: var(--shadow-card);
-}
-.app-header h2 {
-  margin: 0;
-  color: var(--color-accent) !important;
-  font-size: 1.7rem;
-  letter-spacing: 0.02em;
+/* ── Glassmorphism mixin via class ──────────────────────────── */
+.glass-panel {
+  background: var(--glass-bg) !important;
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.3) !important;
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.3) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-soft) !important;
+  transition: all var(--transition-smooth) !important;
 }
 
-/* ── Hero welcome ────────────────────────────────────────── */
+/* ── Hero welcome area ─────────────────────────────────────── */
 .hero {
   text-align: center;
-  padding: 3.5rem 1rem 2rem;
+  padding: 4rem 1rem 2.5rem;
 }
 .hero h1 {
-  font-size: 3.2rem;
-  background: linear-gradient(135deg, var(--color-accent), var(--color-cyan));
+  font-size: 3.5rem !important;
+  font-weight: 800 !important;
+  background: linear-gradient(135deg, var(--pink-300) 0%, var(--pink-500) 50%, var(--pink-400) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   margin-bottom: 0.5rem;
+  letter-spacing: -0.02em;
+  text-shadow: 0 0 60px rgba(255, 107, 138, 0.3);
 }
 .hero-subtitle {
-  color: var(--color-muted);
-  font-size: 1.2rem;
-  margin-top: 0;
+  color: var(--text-secondary);
+  font-size: 1.15rem;
+  font-weight: 300;
+  letter-spacing: 0.03em;
 }
 
-/* ── Progress bar ────────────────────────────────────────── */
+/* ── App header / banner ───────────────────────────────────── */
+.app-header {
+  background: var(--glass-bg) !important;
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.3);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.3);
+  padding: 1.1rem 1.6rem;
+  border-radius: var(--radius-md);
+  margin-bottom: 1.25rem;
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-soft);
+}
+.app-header h2 {
+  margin: 0;
+  color: var(--pink-300) !important;
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+/* ── Progress bar ──────────────────────────────────────────── */
 .progress-wrapper {
   position: relative;
-  background: #1e293b;
-  border-radius: 99px;
-  height: 8px;
+  background: rgba(255, 183, 206, 0.08);
+  border-radius: var(--radius-pill);
+  height: 6px;
   margin-bottom: 2rem;
+  overflow: hidden;
 }
 .progress-bar {
-  background: linear-gradient(90deg, var(--color-accent), var(--color-cyan));
+  background: linear-gradient(90deg, var(--pink-500), var(--pink-300), var(--pink-400));
   height: 100%;
-  border-radius: 99px;
-  transition: width 0.4s ease;
+  border-radius: var(--radius-pill);
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 12px rgba(255, 107, 138, 0.4);
 }
 .progress-label {
   position: absolute;
   right: 0;
   top: -22px;
-  font-size: 0.72rem;
-  color: var(--color-muted);
+  font-size: 0.7rem;
+  color: var(--text-muted);
   font-weight: 600;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
-/* ── Mood badge ──────────────────────────────────────────── */
+/* Streamlit native progress bar */
+.stProgress > div > div > div > div {
+  background: linear-gradient(90deg, var(--pink-500), var(--pink-300)) !important;
+  border-radius: var(--radius-pill) !important;
+  box-shadow: 0 0 10px rgba(255, 107, 138, 0.35) !important;
+}
+.stProgress > div > div {
+  background: rgba(255, 183, 206, 0.08) !important;
+}
+
+/* ── Mood badge ────────────────────────────────────────────── */
 .mood-badge {
   display: inline-block;
-  background: linear-gradient(
-    135deg,
-    rgba(168, 85, 247, 0.2),
-    rgba(6, 182, 212, 0.2)
-  );
-  border: 1px solid var(--color-accent);
-  border-radius: 99px;
-  padding: 0.45rem 1.4rem;
-  font-size: 1.1rem;
+  background: rgba(255, 107, 138, 0.12);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 183, 206, 0.3);
+  border-radius: var(--radius-pill);
+  padding: 0.5rem 1.6rem;
+  font-size: 1.05rem;
   font-weight: 700;
-  color: var(--color-text);
+  color: var(--pink-200);
   margin-bottom: 1.25rem;
   letter-spacing: 0.02em;
+  box-shadow: 0 0 20px rgba(255, 107, 138, 0.12);
 }
 
-/* ── Song result cards ───────────────────────────────────── */
+/* ── Song result cards — liquid glass ──────────────────────── */
 .song-card {
-  background: var(--bg-card);
-  border: 1px solid rgba(168, 85, 247, 0.28);
-  border-radius: var(--radius-card);
-  padding: 1rem 1.25rem;
-  margin-bottom: 0.85rem;
-  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.3);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.3);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 1.1rem 1.3rem;
+  margin-bottom: 0.9rem;
+  transition: all var(--transition-smooth);
   min-height: 130px;
+  position: relative;
+  overflow: hidden;
+}
+.song-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent, rgba(255, 183, 206, 0.4), transparent);
+  opacity: 0;
+  transition: opacity var(--transition-smooth);
 }
 .song-card:hover {
-  box-shadow: 0 0 20px rgba(168, 85, 247, 0.4);
-  border-color: var(--color-accent);
-  transform: translateY(-2px);
+  background: var(--glass-bg-hover);
+  border-color: var(--glass-border-hi);
+  box-shadow: var(--shadow-hover);
+  transform: translateY(-3px) scale(1.008);
+}
+.song-card:hover::before {
+  opacity: 1;
 }
 .card-match {
-  font-size: 0.7rem;
-  color: var(--color-cyan);
+  font-size: 0.68rem;
+  color: var(--pink-400);
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin-bottom: 0.35rem;
+  letter-spacing: 0.12em;
+  margin-bottom: 0.4rem;
 }
 .card-track {
   font-size: 1rem;
   font-weight: 700;
-  color: var(--color-text);
+  color: var(--text-primary);
   margin-bottom: 0.2rem;
   white-space: nowrap;
   overflow: hidden;
@@ -140,76 +232,704 @@ section[data-testid="stSidebar"] {
 }
 .card-artist {
   font-size: 0.875rem;
-  color: var(--color-accent);
+  color: var(--pink-300);
   margin-bottom: 0.1rem;
+  font-weight: 500;
 }
 .card-album {
   font-size: 0.78rem;
-  color: var(--color-muted);
+  color: var(--text-muted);
   margin-bottom: 0.1rem;
   font-style: italic;
 }
 .card-features {
-  font-size: 0.75rem;
-  color: var(--color-muted);
+  font-size: 0.73rem;
+  color: var(--text-secondary);
   margin-top: 0.6rem;
   letter-spacing: 0.03em;
+  opacity: 0.8;
 }
 
-/* ── Tabs ────────────────────────────────────────────────── */
+/* ── Streamlit containers with borders → glass cards ────────── */
+[data-testid="stVerticalBlockBorderWrapper"] > div:has(> [data-testid="stVerticalBlock"]) {
+  background: var(--glass-bg) !important;
+  backdrop-filter: blur(var(--glass-blur)) !important;
+  -webkit-backdrop-filter: blur(var(--glass-blur)) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-soft) !important;
+  transition: all var(--transition-smooth) !important;
+}
+[data-testid="stVerticalBlockBorderWrapper"] > div:has(> [data-testid="stVerticalBlock"]):hover {
+  border-color: var(--glass-border-hi) !important;
+  box-shadow: var(--shadow-hover) !important;
+  transform: translateY(-2px) !important;
+}
+
+/* ── Tabs — liquid glass pills ─────────────────────────────── */
 .stTabs [data-baseweb="tab-list"] {
-  background: var(--bg-card) !important;
-  border-radius: var(--radius-card) !important;
-  padding: 4px !important;
-  gap: 2px !important;
+  background: var(--glass-bg) !important;
+  backdrop-filter: blur(12px) !important;
+  border-radius: var(--radius-md) !important;
+  padding: 5px !important;
+  gap: 4px !important;
+  border: 1px solid var(--glass-border) !important;
 }
 .stTabs [data-baseweb="tab"] {
-  color: var(--color-muted) !important;
-  border-radius: 8px !important;
+  color: var(--text-muted) !important;
+  border-radius: 10px !important;
   font-weight: 500 !important;
+  font-size: 0.9rem !important;
+  transition: all var(--transition-smooth) !important;
+  padding: 0.5rem 1rem !important;
+}
+.stTabs [data-baseweb="tab"]:hover {
+  color: var(--pink-300) !important;
+  background: rgba(255, 183, 206, 0.06) !important;
 }
 .stTabs [aria-selected="true"] {
-  color: var(--color-text) !important;
-  background: rgba(168, 85, 247, 0.22) !important;
+  color: var(--pink-100) !important;
+  background: rgba(255, 107, 138, 0.18) !important;
+  box-shadow: 0 0 14px rgba(255, 107, 138, 0.12) !important;
+  font-weight: 600 !important;
+}
+/* Tab highlight bar */
+.stTabs [data-baseweb="tab-highlight"] {
+  background-color: var(--pink-400) !important;
+  height: 2px !important;
+  border-radius: 2px !important;
 }
 
-/* ── Buttons ─────────────────────────────────────────────── */
-.stButton > button[kind="primary"] {
-  background: linear-gradient(135deg, var(--color-accent), var(--color-cyan)) !important;
-  color: white !important;
-  border: none !important;
-  border-radius: 8px !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.03em !important;
+/* ── Buttons — glass pink ──────────────────────────────────── */
+.stButton > button {
+  border-radius: var(--radius-sm) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em !important;
+  transition: all var(--transition-smooth) !important;
+  border: 1px solid var(--glass-border) !important;
+  background: var(--glass-bg) !important;
+  color: var(--text-primary) !important;
+  backdrop-filter: blur(10px) !important;
 }
-.stButton > button[kind="primary"]:hover {
-  opacity: 0.9 !important;
+.stButton > button:hover {
+  background: rgba(255, 183, 206, 0.12) !important;
+  border-color: var(--glass-border-hi) !important;
+  box-shadow: 0 0 20px rgba(255, 107, 138, 0.15) !important;
   transform: translateY(-1px) !important;
 }
-
-/* ── Inputs / Multiselect ────────────────────────────────── */
-.stMultiSelect [data-baseweb="select"] {
-  background: var(--bg-card) !important;
-  border-color: rgba(168, 85, 247, 0.4) !important;
+.stButton > button:active {
+  transform: translateY(0) scale(0.98) !important;
+}
+/* Primary button */
+.stButton > button[kind="primary"],
+.stButton > button[data-testid="stBaseButton-primary"] {
+  background: linear-gradient(135deg, var(--pink-500) 0%, var(--pink-400) 50%, var(--pink-300) 100%) !important;
+  color: #0d0711 !important;
+  border: none !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 20px rgba(255, 107, 138, 0.25) !important;
+}
+.stButton > button[kind="primary"]:hover,
+.stButton > button[data-testid="stBaseButton-primary"]:hover {
+  box-shadow: 0 6px 30px rgba(255, 107, 138, 0.4) !important;
+  transform: translateY(-2px) !important;
+  filter: brightness(1.08) !important;
 }
 
-/* ── Metrics (Data Lab) ──────────────────────────────────── */
+/* ── Radio buttons ─────────────────────────────────────────── */
+.stRadio > div {
+  gap: 0.3rem !important;
+}
+.stRadio label {
+  background: var(--glass-bg) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: var(--radius-sm) !important;
+  padding: 0.6rem 1rem !important;
+  transition: all var(--transition-smooth) !important;
+  cursor: pointer !important;
+}
+.stRadio label:hover {
+  background: rgba(255, 183, 206, 0.08) !important;
+  border-color: rgba(255, 183, 206, 0.3) !important;
+}
+.stRadio label[data-checked="true"],
+.stRadio div[data-checked="true"] label {
+  background: rgba(255, 107, 138, 0.15) !important;
+  border-color: var(--pink-400) !important;
+  box-shadow: 0 0 14px rgba(255, 107, 138, 0.1) !important;
+}
+
+/* ── Inputs / Multiselect / Selectbox ──────────────────────── */
+.stMultiSelect [data-baseweb="select"],
+.stSelectbox [data-baseweb="select"] {
+  background: var(--glass-bg) !important;
+  backdrop-filter: blur(10px) !important;
+  border-color: var(--glass-border) !important;
+  border-radius: var(--radius-sm) !important;
+}
+.stMultiSelect [data-baseweb="select"]:focus-within,
+.stSelectbox [data-baseweb="select"]:focus-within {
+  border-color: var(--pink-400) !important;
+  box-shadow: 0 0 12px rgba(255, 107, 138, 0.12) !important;
+}
+/* Dropdown menu */
+[data-baseweb="popover"] > div {
+  background: rgba(19, 10, 26, 0.95) !important;
+  backdrop-filter: blur(20px) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: var(--radius-sm) !important;
+}
+[data-baseweb="menu"] li:hover {
+  background: rgba(255, 107, 138, 0.12) !important;
+}
+
+/* ── Metrics (Data Lab) — glass cards ──────────────────────── */
 [data-testid="stMetric"] {
-  background: var(--bg-card);
-  border-radius: 8px;
-  padding: 0.6rem 0.8rem;
-  border: 1px solid rgba(168, 85, 247, 0.2);
+  background: var(--glass-bg) !important;
+  backdrop-filter: blur(12px) !important;
+  border-radius: var(--radius-md) !important;
+  padding: 0.7rem 0.9rem !important;
+  border: 1px solid var(--glass-border) !important;
+  box-shadow: var(--shadow-soft) !important;
+  transition: all var(--transition-smooth) !important;
+}
+[data-testid="stMetric"]:hover {
+  border-color: var(--glass-border-hi) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: var(--shadow-hover) !important;
 }
 [data-testid="stMetricValue"] {
-  color: var(--color-accent) !important;
+  color: var(--pink-300) !important;
+  font-weight: 700 !important;
+}
+[data-testid="stMetricLabel"] {
+  color: var(--text-secondary) !important;
 }
 
-/* ── Dividers ────────────────────────────────────────────── */
+/* ── Expanders — glass style ───────────────────────────────── */
+.streamlit-expanderHeader {
+  background: var(--glass-bg) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: var(--radius-sm) !important;
+  transition: all var(--transition-smooth) !important;
+}
+.streamlit-expanderHeader:hover {
+  background: rgba(255, 183, 206, 0.06) !important;
+  border-color: rgba(255, 183, 206, 0.25) !important;
+}
+details[data-testid="stExpander"] {
+  background: var(--glass-bg) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: var(--radius-md) !important;
+}
+
+/* ── Info / Success / Warning / Error alerts ────────────────── */
+[data-testid="stAlert"] {
+  background: var(--glass-bg) !important;
+  backdrop-filter: blur(10px) !important;
+  border-radius: var(--radius-sm) !important;
+  border: 1px solid var(--glass-border) !important;
+}
+
+/* Success alert specific — pink tint */
+div[data-testid="stAlert"][data-baseweb="notification"]:has(div[role="alert"]) {
+  border-left-color: var(--pink-400) !important;
+}
+
+/* ── Dataframe / Table ─────────────────────────────────────── */
+[data-testid="stDataFrame"] {
+  border: 1px solid var(--glass-border) !important;
+  border-radius: var(--radius-sm) !important;
+  overflow: hidden !important;
+}
+
+/* ── Dividers ──────────────────────────────────────────────── */
 hr {
-  border-color: rgba(168, 85, 247, 0.2) !important;
+  border-color: rgba(255, 183, 206, 0.1) !important;
+  margin: 1.5rem 0 !important;
 }
 
-/* ── Headings ────────────────────────────────────────────── */
-h1, h2, h3, h4 {
-  color: var(--color-text) !important;
+/* ── Headings ──────────────────────────────────────────────── */
+h1 {
+  color: var(--pink-200) !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.02em !important;
+}
+h2 {
+  color: var(--pink-300) !important;
+  font-weight: 700 !important;
+}
+h3 {
+  color: var(--text-primary) !important;
+  font-weight: 600 !important;
+}
+h4, h5, h6 {
+  color: var(--text-secondary) !important;
+}
+
+/* ── General text & captions ───────────────────────────────── */
+p, span, li {
+  color: var(--text-primary) !important;
+}
+.stCaption, [data-testid="stCaptionContainer"] {
+  color: var(--text-muted) !important;
+}
+
+/* ── Spinner ───────────────────────────────────────────────── */
+.stSpinner > div > div {
+  border-top-color: var(--pink-400) !important;
+}
+
+/* ── Download button ───────────────────────────────────────── */
+.stDownloadButton > button {
+  background: var(--glass-bg) !important;
+  border: 1px solid var(--glass-border) !important;
+  color: var(--pink-300) !important;
+  border-radius: var(--radius-sm) !important;
+}
+.stDownloadButton > button:hover {
+  background: rgba(255, 183, 206, 0.1) !important;
+  border-color: var(--pink-400) !important;
+  box-shadow: 0 0 16px rgba(255, 107, 138, 0.12) !important;
+}
+
+/* ── Scrollbar — thin pink ─────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 183, 206, 0.2);
+  border-radius: var(--radius-pill);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 183, 206, 0.35);
+}
+
+/* ── Code block ────────────────────────────────────────────── */
+.stCodeBlock, code {
+  background: rgba(255, 183, 206, 0.04) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: var(--radius-sm) !important;
+}
+
+/* ── Plotly chart background transparency ──────────────────── */
+.js-plotly-plot .plotly .main-svg {
+  background: transparent !important;
+}
+
+/* ── Subtle floating animation on page load ────────────────── */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.block-container > div {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+/* ── Subtle pulsing glow on the title ──────────────────────── */
+@keyframes subtleGlow {
+  0%, 100% { filter: drop-shadow(0 0 8px rgba(255, 107, 138, 0.15)); }
+  50%      { filter: drop-shadow(0 0 20px rgba(255, 107, 138, 0.3)); }
+}
+.stApp h1 {
+  animation: subtleGlow 4s ease-in-out infinite;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Spotify-Style Playlist
+   ══════════════════════════════════════════════════════════════ */
+
+.playlist-container {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+}
+
+/* Header row */
+.playlist-header {
+  display: grid;
+  grid-template-columns: 36px 48px 1.8fr 1fr 0.7fr 60px 120px;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(255, 183, 206, 0.08);
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* Each track row */
+.playlist-row {
+  display: grid;
+  grid-template-columns: 36px 48px 1.8fr 1fr 0.7fr 60px 120px;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 16px;
+  border-bottom: 1px solid rgba(255, 183, 206, 0.04);
+  transition: all var(--transition-smooth);
+  cursor: default;
+}
+.playlist-row:last-child {
+  border-bottom: none;
+}
+.playlist-row:hover {
+  background: rgba(255, 183, 206, 0.06);
+}
+
+/* Row # */
+.pr-num {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-align: center;
+}
+
+/* Album cover art */
+.pr-cover {
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+  flex-shrink: 0;
+  transition: transform var(--transition-smooth), box-shadow var(--transition-smooth);
+}
+.playlist-row:hover .pr-cover {
+  transform: scale(1.08);
+  box-shadow: 0 4px 16px rgba(255, 107, 138, 0.2);
+}
+.cover-icon {
+  font-size: 1.1rem;
+  opacity: 0.6;
+  color: rgba(255,255,255,0.8);
+  text-shadow: 0 1px 4px rgba(0,0,0,0.4);
+}
+
+/* Title block */
+.pr-title-block {
+  min-width: 0;
+  overflow: hidden;
+}
+.pr-track {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.playlist-row:hover .pr-track {
+  color: var(--pink-200);
+}
+.pr-artist {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+/* Spotify open link */
+.spotify-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--pink-500);
+  color: #0d0711 !important;
+  font-size: 0.6rem;
+  text-decoration: none !important;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: all var(--transition-smooth);
+  flex-shrink: 0;
+}
+.playlist-row:hover .spotify-link {
+  opacity: 1;
+  transform: scale(1);
+}
+.spotify-link:hover {
+  background: var(--pink-300) !important;
+  box-shadow: 0 0 12px rgba(255, 107, 138, 0.4);
+}
+
+/* Album, genre, match */
+.pr-album {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pr-genre {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  background: rgba(255, 183, 206, 0.08);
+  border: 1px solid rgba(255, 183, 206, 0.12);
+  border-radius: var(--radius-pill);
+  padding: 2px 8px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pr-match {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--pink-300);
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
+/* Feature mini-bars */
+.pr-features {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.feat-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.feat-label {
+  font-size: 0.6rem;
+  width: 16px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.feat-bar {
+  flex: 1;
+  height: 4px;
+  background: rgba(255, 183, 206, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.feat-fill {
+  height: 100%;
+  background: var(--pink-400);
+  border-radius: 2px;
+  transition: width 0.6s ease;
+}
+.feat-fill.feat-valence {
+  background: var(--pink-300);
+}
+.feat-fill.feat-tempo {
+  background: var(--pink-500);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Dataset Info Card (Data Lab)
+   ══════════════════════════════════════════════════════════════ */
+
+.dataset-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 1.2rem 1.5rem;
+  margin-bottom: 1.2rem;
+  box-shadow: var(--shadow-soft);
+}
+.dataset-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 1rem;
+}
+.dataset-icon {
+  font-size: 2rem;
+}
+.dataset-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--pink-200) !important;
+}
+.dataset-source {
+  font-size: 0.78rem;
+  color: var(--text-muted) !important;
+  letter-spacing: 0.02em;
+}
+.dataset-stats {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 0.8rem;
+  flex-wrap: wrap;
+}
+.ds-stat {
+  background: rgba(255, 183, 206, 0.06);
+  border: 1px solid rgba(255, 183, 206, 0.1);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.9rem;
+  text-align: center;
+  flex: 1;
+  min-width: 80px;
+}
+.ds-val {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--pink-300) !important;
+  line-height: 1.3;
+}
+.ds-label {
+  display: block;
+  font-size: 0.65rem;
+  color: var(--text-muted) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.dataset-link {
+  display: inline-block;
+  font-size: 0.82rem;
+  color: var(--pink-400) !important;
+  text-decoration: none !important;
+  font-weight: 600;
+  transition: all var(--transition-smooth);
+  letter-spacing: 0.02em;
+}
+.dataset-link:hover {
+  color: var(--pink-200) !important;
+  text-decoration: underline !important;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Pipeline Flow Diagram
+   ══════════════════════════════════════════════════════════════ */
+
+.pipeline-flow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1rem 0.5rem;
+  overflow-x: auto;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.pipe-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  transition: all var(--transition-smooth);
+}
+.pipe-step:hover {
+  border-color: var(--glass-border-hi);
+  background: rgba(255, 183, 206, 0.06);
+  transform: translateY(-1px);
+}
+.pipe-step.pipe-done {
+  border-color: var(--pink-400);
+  background: rgba(255, 107, 138, 0.12);
+}
+.pipe-num {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--pink-400) !important;
+  background: rgba(255, 107, 138, 0.15);
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pipe-name {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary) !important;
+  white-space: nowrap;
+}
+.pipe-arrow {
+  color: var(--text-muted) !important;
+  font-size: 0.9rem;
+  opacity: 0.5;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Data Funnel Chart
+   ══════════════════════════════════════════════════════════════ */
+
+.funnel-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0.5rem 0;
+}
+.funnel-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.funnel-label {
+  font-size: 0.72rem;
+  color: var(--text-secondary) !important;
+  width: 220px;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
+}
+.funnel-bar-bg {
+  flex: 1;
+  height: 18px;
+  background: rgba(255, 183, 206, 0.06);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.funnel-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0.7;
+}
+.funnel-count {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-primary) !important;
+  min-width: 60px;
+  text-align: right;
+}
+.funnel-removed {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--pink-500) !important;
+  min-width: 50px;
+}
+
+/* ── Hide Streamlit chrome for a cleaner look ──────────────── */
+#MainMenu { visibility: hidden; }
+footer { visibility: hidden; }
+header[data-testid="stHeader"] {
+  background: transparent !important;
 }
