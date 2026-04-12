@@ -346,6 +346,214 @@ The 19 MB Kaggle CSV cannot be committed to Git (correctly gitignored). Cloud de
 
 ---
 
+## 🔧 Bug Tracker & Deployment Fixes (Chronological)
+
+### Bug 1: Streamlit Cloud Build Hang (30+ minutes stuck on dependency install)
+
+**Symptom:** "Your app is in the oven" stuck for 30+ minutes, never completing.
+
+**Root Cause:** `requirements.txt` used **pinned versions** (`==`) that conflicted with Streamlit Cloud's pre-installed packages, causing pip's dependency resolver to enter an infinite loop.
+
+**Fix:**
+- Changed all `==` to `>=` minimum versions in `requirements.txt`
+- Added `runtime.txt` with `python-3.11` (Cloud default was 3.13, which lacked pre-built wheels)
+- Removed `pytest` and `pytest-cov` from deployment requirements (dev-only deps)
+
+**Commit:** `c22d9dc` — "fix: add runtime.txt (python-3.11) and remove dev deps to fix Streamlit Cloud build freeze"
+
+---
+
+### Bug 2: `packages.txt` apt-get Errors
+
+**Symptom:** Build failed with `E: Unable to locate package #`, `E: Unable to locate package System-level packages needed for...`
+
+**Root Cause:** `packages.txt` contained comment lines starting with `#` — Streamlit Cloud's apt-get reads EVERY line as a package name, including comments.
+
+**Fix:** Removed `packages.txt` entirely. The flexible `>=` version ranges in `requirements.txt` resolve to pre-built wheels — no system-level packages needed.
+
+**Commit:** `8411a5b` — "fix: remove packages.txt causing apt-get errors on Debian Trixie"
+
+---
+
+### Bug 3: `KeyError: "['tempo_norm'] not in index"`
+
+**Symptom:** Survey completes successfully, then crashes with pandas KeyError on Step 4.
+
+**Root Cause:** The sample CSV (`data/sample/spotify_sample.csv`) only had a `tempo` column (raw BPM). The recommender expects `tempo_norm` (normalized 0-1). The validator pipeline creates `tempo_norm` from `tempo`, but demo mode loads the sample CSV directly, skipping the pipeline entirely.
+
+**Fix:** Added `tempo_norm` column to the sample CSV by normalizing: `tempo_norm = tempo.clip(0, 250) / 250.0`
+
+**Commit:** `eb2d54c` (partial) — "fix: resolve Cloud KeyError and CSS leak"
+
+---
+
+### Bug 4: CSS Text Leaking into Page (Attempt 1 — st.html)
+
+**Symptom:** Raw CSS code displayed as visible text across the entire page body.
+
+**Root Cause:** `st.html("<style>...</style>")` doesn't work on Streamlit Cloud's version. The `<style>` tags get stripped and raw CSS text leaks.
+
+**Attempted Fix:** Switched to `st.markdown("<style>...</style>", unsafe_allow_html=True)`
+
+**Result:** Failed — same CSS leak.
+
+---
+
+### Bug 5: CSS Text Leaking into Page (Attempt 2 — st.markdown)
+
+**Symptom:** Same CSS leak persisted.
+
+**Attempted Fix:** Tried `st.components.v1.html("<style>...</style>", height=0)` (iframe sandbox approach)
+
+**Result:** Failed — iframes can't affect parent page styles, and Cloud still strips content.
+
+---
+
+### Bug 6: CSS Text Leaking into Page (Final Fix — Native Components)
+
+**Symptom:** CSS leak on ALL injection methods (`st.html`, `st.markdown`, `st.components.v1.html`).
+
+**Root Cause:** Streamlit Cloud **strips `<style>` blocks from ALL injection methods** — this is platform behavior, not a bug in our code. Cloud version 1.56.0 sanitizes all HTML output.
+
+**Final Fix:** Complete rewrite of `app.py` — **zero CSS injection, zero `unsafe_allow_html=True`, zero `st.html()` calls.**
+
+| Before (leaked) | After (native) |
+|---|---|
+| Raw HTML song cards | `st.container(border=True)` |
+| CSS progress bar | `st.progress()` |
+| CSS header div | `st.title("🎵 MoodTune")` |
+| CSS mood badge | `st.success()` with emoji |
+| CSS dividers | `st.divider()` |
+| `styles.css` injection | `.streamlit/config.toml` dark theme |
+
+**Commit:** `0c90308` — "fix: remove ALL CSS injection — use native Streamlit components"
+
+---
+
+### Bug 7: Stale Filenames in UI
+
+**Symptom:** Error messages and docs still referenced `SpotifyFeatures.csv` (old 2018 dataset name).
+
+**Fix:** Updated all references to `spotify_tracks.csv` and maharshipandya Kaggle link across `ui/app.py`.
+
+**Commit:** `eb2d54c` — part of "fix: resolve Cloud KeyError and CSS leak"
+
+---
+
+### Bug 8: Warning Bar Shows in Demo Mode
+
+**Symptom:** "Dataset not found" warning bar appeared even when demo mode was working fine with the sample dataset.
+
+**Fix:** Removed the `st.warning()` block entirely. Demo mode now only shows the `st.info()` banner explaining it's running on a sample. The Data Lab tab handles the missing-dataset case gracefully with its own info message.
+
+**Commit:** `0c90308` — part of native Streamlit rewrite
+
+---
+
+## 🔧 Bug Tracker & Deployment Fixes (Chronological)
+
+### Bug 1: Streamlit Cloud Build Hang (30+ minutes stuck on dependency install)
+
+**Symptom:** "Your app is in the oven" stuck for 30+ minutes, never completing.
+
+**Root Cause:** `requirements.txt` used **pinned versions** (`==`) that conflicted with Streamlit Cloud's pre-installed packages, causing pip's dependency resolver to enter an infinite loop.
+
+**Fix:**
+- Changed all `==` to `>=` minimum versions in `requirements.txt`
+- Added `runtime.txt` with `python-3.11` (Cloud default was 3.13, which lacked pre-built wheels)
+- Removed `pytest` and `pytest-cov` from deployment requirements (dev-only deps)
+
+**Commit:** `c22d9dc` — "fix: add runtime.txt (python-3.11) and remove dev deps to fix Streamlit Cloud build freeze"
+
+---
+
+### Bug 2: `packages.txt` apt-get Errors
+
+**Symptom:** Build failed with `E: Unable to locate package #`, `E: Unable to locate package System-level packages needed for...`
+
+**Root Cause:** `packages.txt` contained comment lines starting with `#` — Streamlit Cloud's apt-get reads EVERY line as a package name, including comments.
+
+**Fix:** Removed `packages.txt` entirely. The flexible `>=` version ranges in `requirements.txt` resolve to pre-built wheels — no system-level packages needed.
+
+**Commit:** `8411a5b` — "fix: remove packages.txt causing apt-get errors on Debian Trixie"
+
+---
+
+### Bug 3: `KeyError: "['tempo_norm'] not in index"`
+
+**Symptom:** Survey completes successfully, then crashes with pandas KeyError on Step 4.
+
+**Root Cause:** The sample CSV (`data/sample/spotify_sample.csv`) only had a `tempo` column (raw BPM). The recommender expects `tempo_norm` (normalized 0-1). The validator pipeline creates `tempo_norm` from `tempo`, but demo mode loads the sample CSV directly, skipping the pipeline entirely.
+
+**Fix:** Added `tempo_norm` column to the sample CSV by normalizing: `tempo_norm = tempo.clip(0, 250) / 250.0`
+
+**Commit:** `eb2d54c` (partial) — "fix: resolve Cloud KeyError and CSS leak"
+
+---
+
+### Bug 4: CSS Text Leaking into Page (Attempt 1 — st.html)
+
+**Symptom:** Raw CSS code displayed as visible text across the entire page body.
+
+**Root Cause:** `st.html("<style>...</style>")` doesn't work on Streamlit Cloud's version. The `<style>` tags get stripped and raw CSS text leaks.
+
+**Attempted Fix:** Switched to `st.markdown("<style>...</style>", unsafe_allow_html=True)`
+
+**Result:** Failed — same CSS leak.
+
+---
+
+### Bug 5: CSS Text Leaking into Page (Attempt 2 — st.markdown)
+
+**Symptom:** Same CSS leak persisted.
+
+**Attempted Fix:** Tried `st.components.v1.html("<style>...</style>", height=0)` (iframe sandbox approach)
+
+**Result:** Failed — iframes can't affect parent page styles, and Cloud still strips content.
+
+---
+
+### Bug 6: CSS Text Leaking into Page (Final Fix — Native Components)
+
+**Symptom:** CSS leak on ALL injection methods (`st.html`, `st.markdown`, `st.components.v1.html`).
+
+**Root Cause:** Streamlit Cloud **strips `<style>` blocks from ALL injection methods** — this is platform behavior, not a bug in our code. Cloud version 1.56.0 sanitizes all HTML output.
+
+**Final Fix:** Complete rewrite of `app.py` — **zero CSS injection, zero `unsafe_allow_html=True`, zero `st.html()` calls.**
+
+| Before (leaked) | After (native) |
+|---|---|
+| Raw HTML song cards | `st.container(border=True)` |
+| CSS progress bar | `st.progress()` |
+| CSS header div | `st.title("🎵 MoodTune")` |
+| CSS mood badge | `st.success()` with emoji |
+| CSS dividers | `st.divider()` |
+| `styles.css` injection | `.streamlit/config.toml` dark theme |
+
+**Commit:** `0c90308` — "fix: remove ALL CSS injection — use native Streamlit components"
+
+---
+
+### Bug 7: Stale Filenames in UI
+
+**Symptom:** Error messages and docs still referenced `SpotifyFeatures.csv` (old 2018 dataset name).
+
+**Fix:** Updated all references to `spotify_tracks.csv` and maharshipandya Kaggle link across `ui/app.py`.
+
+**Commit:** `eb2d54c` — part of "fix: resolve Cloud KeyError and CSS leak"
+
+---
+
+### Bug 8: Warning Bar Shows in Demo Mode
+
+**Symptom:** "Dataset not found" warning bar appeared even when demo mode was working fine with the sample dataset.
+
+**Fix:** Removed the `st.warning()` block entirely. Demo mode now only shows the `st.info()` banner explaining it's running on a sample. The Data Lab tab handles the missing-dataset case gracefully with its own info message.
+
+**Commit:** `0c90308` — part of native Streamlit rewrite
+
+---
+
 ## 📅 Build Timeline
 
 | Phase | Date | Work |
@@ -357,9 +565,14 @@ The 19 MB Kaggle CSV cannot be committed to Git (correctly gitignored). Cloud de
 | Phase 4: Streamlit UI | Apr 12 | app.py, styles.css, multi-step flow, dark theme, Data Lab tab |
 | Testing | Apr 12 | 60/60 tests passing across all 3 test files |
 | Dataset Update | Apr 12 | Switched from 2018 dataset to 2022 maharshipandya, added column normalization |
-| CSS Fix | Apr 12 | Fixed raw CSS text leaking via st.html() switch |
 | GitHub + Deploy | Apr 12 | Created repo, pushed 18 files, set up Streamlit Community Cloud |
-| Build Fix | Apr 12 | Added runtime.txt (Python 3.11), stripped pytest deps, pushed fix |
+| **Bug 1: Build Hang** | Apr 12 | Fixed pinned versions → flexible `>=`, added `runtime.txt` |
+| **Bug 2: packages.txt** | Apr 12 | Removed file — comments parsed as apt packages |
+| **Bug 3: KeyError** | Apr 12 | Added `tempo_norm` column to sample CSV |
+| **Bug 4-5: CSS Leak** | Apr 12 | `st.html` → `st.markdown` → `st.components.v1.html` — all failed |
+| **Bug 6: CSS Final Fix** | Apr 12 | Complete rewrite — zero CSS injection, native Streamlit only |
+| **Bug 7: Stale Filenames** | Apr 12 | Updated all `SpotifyFeatures.csv` → `spotify_tracks.csv` |
+| **Bug 8: Warning Bar** | Apr 12 | Removed stale warning, demo mode shows clean info banner |
 | Streamlit MCP Research | Apr 12 | Researched available MCP servers — found DrMikeSh/mcp_streamlit (community, not official) |
 
 ---
