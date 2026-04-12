@@ -39,9 +39,12 @@ st.set_page_config(
 
 _CSS_PATH = Path(__file__).parent / "styles.css"
 if _CSS_PATH.exists():
-    # st.html() properly injects the <style> block without rendering it as
-    # visible text (unlike st.markdown which leaks CSS into the page body).
-    st.html(f"<style>{_CSS_PATH.read_text(encoding='utf-8')}</style>")
+    # Use st.markdown with unsafe_allow_html for CSS injection.
+    # st.html() is not available on all Streamlit Cloud deployments.
+    st.markdown(
+        f"<style>{_CSS_PATH.read_text(encoding='utf-8')}</style>",
+        unsafe_allow_html=True,
+    )
 
 # ── paths ──────────────────────────────────────────────────────────────────────
 
@@ -371,7 +374,7 @@ def _render_data_lab_tab() -> None:
         st.download_button(
             label="⬇  Download cleaned CSV",
             data=clean_df.to_csv(index=False).encode("utf-8"),
-            file_name="SpotifyFeatures_clean.csv",
+            file_name="spotify_tracks_clean.csv",
             mime="text/csv",
         )
 
@@ -400,10 +403,10 @@ A college project demonstrating a complete, offline machine-learning pipeline:
 ### Architecture
 
 ```
-data/raw/SpotifyFeatures.csv
+data/raw/spotify_tracks.csv
         │
         ▼
-src/validator.py ─────────────────► data/processed/SpotifyFeatures_clean.csv
+src/validator.py ─────────────────► data/processed/spotify_tracks_clean.csv
                                               │
 src/mood_mapper.py ──► target vector          │
  [energy, valence,                            ▼
@@ -427,14 +430,14 @@ src/mood_mapper.py ──► target vector          │
 | ML | scikit-learn NearestNeighbors (cosine) |
 | Data | pandas 2.2 · numpy 1.26 |
 | Charts | Plotly 5.22 · Seaborn 0.13 |
-| Dataset | SpotifyFeatures.csv (Kaggle · ~232k tracks · CC0) |
+| Dataset | spotify_tracks.csv (Kaggle · ~114k tracks · CC0) |
 
 ---
 
 ### Dataset Credit
 
-[Ultimate Spotify Tracks DB](https://www.kaggle.com/datasets/zaheenhamidani/ultimate-spotify-tracks-db)
-by **zaheenhamidani** on Kaggle (CC0 Public Domain license).
+[Spotify Tracks Dataset](https://www.kaggle.com/datasets/maharshipandya/-spotify-tracks-dataset)
+by **maharshipandya** on Kaggle (CC0 Public Domain license).
 
 ---
 
@@ -451,13 +454,13 @@ by **zaheenhamidani** on Kaggle (CC0 Public Domain license).
 # Main layout
 # ══════════════════════════════════════════════════════════════════════════════
 
-st.html('<div class="app-header"><h2>🎵 MoodTune</h2></div>')
+st.markdown('<div class="app-header"><h2>🎵 MoodTune</h2></div>', unsafe_allow_html=True)
 
 # Check if dataset is available before trying to load it
 if not _RAW_CSV.exists() and not _CLEAN_CSV.exists():
     st.warning(
         "⚠️  Dataset not found. Open the **Data Lab** tab for download instructions, "
-        "or place `SpotifyFeatures.csv` at `data/raw/SpotifyFeatures.csv` and restart."
+        "or place `spotify_tracks.csv` at `data/raw/spotify_tracks.csv` and restart."
     )
 
 if _DEMO_MODE:
