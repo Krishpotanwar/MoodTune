@@ -4,7 +4,7 @@
 **Author:** Krish Potanwar
 **Started:** April 12, 2026
 **GitHub:** https://github.com/Krishpotanwar/MoodTune
-**Status:** Complete & Deployed (Demo Mode)
+**Status:** Complete Locally, syncing latest v2 build to Streamlit Cloud
 
 ---
 
@@ -588,8 +588,62 @@ The 19 MB Kaggle CSV cannot be committed to Git (correctly gitignored). Cloud de
 
 ---
 
+## 📝 Iteration Log
+
+### 2026-04-13 04:15 IST — MoodTune v2 journey upgrade prepared for GitHub push
+
+**Goal:**  
+Upgrade the app from the original survey-first recommender into the planned MoodTune v2 experience from `DESIGN.md`, while keeping the project safe to sync to Streamlit Cloud.
+
+**What changed:**  
+- Added a shared config layer in `src/config.py` so paths and constants are not hardcoded.
+- Added `src/journey.py` to generate 15-20 track mood-transition playlists using a KDTree over `(valence, energy)`.
+- Added `src/nlp_mood.py` plus `data/mood_lexicon.json` for free-text mood mapping.
+- Updated `src/mood_mapper.py` to expose survey mood coordinates.
+- Extended `src/visualizer.py` with mood-space and journey-path visualizations.
+- Rewrote `ui/app.py` around four tabs: Mood Space, Journey, Data Lab, and How It Works.
+- Added tests for the new journey and NLP modules.
+- Rebuilt `code-review-graph` for the repo and regenerated the graph wiki.
+- Removed CSS injection from `ui/app.py` before push so the Streamlit Cloud deployment does not regress into the old style-tag leak issue.
+
+**Why:**  
+The project needed the “unexpected” professor-demo version: interactive mood-space exploration, journey playlists, NLP input, and a visible algorithm story. The final pre-push edit also protects the deployment path because this repo previously hit Cloud sanitizer issues with injected CSS.
+
+**Files affected:**  
+- `src/config.py`
+- `src/journey.py`
+- `src/nlp_mood.py`
+- `src/mood_mapper.py`
+- `src/visualizer.py`
+- `ui/app.py`
+- `data/mood_lexicon.json`
+- `tests/test_journey.py`
+- `tests/test_nlp_mood.py`
+
+**Verification:**  
+- `pytest -q` → `71 passed`
+- `python src/journey.py` → generated an 18-song journey successfully on the local dataset
+- `python src/nlp_mood.py` → returned valid coordinates for example mood phrases
+- `python src/visualizer.py` → figure creation succeeded
+- `streamlit run ui/app.py` → local app loaded, chart rendered, and the new tab structure displayed correctly
+- `code-review-graph build --repo .` → graph rebuilt successfully
+
+**Blockers / risks:**  
+- The local app looked better with CSS, but CSS injection is intentionally disabled before deployment because Streamlit Cloud previously stripped `<style>` blocks and leaked raw CSS into the page.
+- Streamlit Cloud behavior still needs to be confirmed after the GitHub sync finishes.
+
+**Next step:**  
+Push the current `main` branch to GitHub and let Streamlit Cloud auto-sync the updated app.
+
+---
+
 ## 🏁 Current State
 
-**All code complete. All 60 tests passing. GitHub repo live. Streamlit Cloud deployment in progress.**
+**MoodTune v2 is working locally and verified. The latest build adds mood-space exploration, mood journeys, NLP mood input, and the updated professor-demo tab structure.**
 
-The app runs locally with the full 114k-track dataset and deploys to the cloud in demo mode (200-track sample). The Data Lab tab provides a step-by-step cleaning pipeline demonstration suitable for a college project presentation.
+Latest local verification:
+- `pytest -q` → `71 passed`
+- `code-review-graph` rebuilt and wiki generated
+- Streamlit app verified locally before GitHub push
+
+The next live-state checkpoint is the Streamlit Cloud sync after the GitHub push finishes.

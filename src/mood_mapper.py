@@ -90,6 +90,7 @@ def map_to_vector(q1: int, q2: int, q3: int, q4: int) -> dict:
             tempo_norm   (float)
             acousticness (float)
             vector       (list[float])  — ordered [energy, valence, tempo_norm, acousticness]
+            coordinate   (tuple[float, float]) — ordered (valence, energy)
             mood_label   (str)          — one of Joyful / Angry / Relaxed / Depressed
             mood_emoji   (str)
 
@@ -119,6 +120,7 @@ def map_to_vector(q1: int, q2: int, q3: int, q4: int) -> dict:
         "tempo_norm":   tempo_norm,
         "acousticness": acousticness,
         "vector":       scores,
+        "coordinate":   (valence, energy),
         "mood_label":   mood_label,
         "mood_emoji":   mood_emoji,
     }
