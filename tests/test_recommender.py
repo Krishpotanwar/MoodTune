@@ -7,7 +7,6 @@ import pytest
 
 from src.recommender import FEATURE_COLS, build_model, recommend
 
-
 # ── fixture ────────────────────────────────────────────────────────────────────
 
 @pytest.fixture()
