@@ -7,7 +7,9 @@ Run from the project root:
 
 from __future__ import annotations
 
+import json
 import math
+import random
 import sys
 from collections.abc import Callable
 from html import escape
@@ -18,6 +20,7 @@ from urllib.parse import quote_plus
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 from scipy.spatial import KDTree
 from sklearn.neighbors import NearestNeighbors
 
@@ -57,6 +60,26 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
+_BOOT_SCENE_SAMPLE_SIZE = 2_400
+_AMBIENT_WORDS = (
+    "sargam",
+    "rhythm",
+    "sur",
+    "raag",
+    "drop",
+    "groove",
+    "dil",
+    "beat",
+    "vibe",
+    "safar",
+    "tempo",
+    "mood",
+    "lehra",
+    "bass",
+    "echo",
+    "taal",
+)
+
 
 # ── CSS injection ──────────────────────────────────────────────────────────────
 
@@ -86,6 +109,7 @@ def _get_journey_tree() -> KDTree:
 _SELECTION_MODES: tuple[str, str] = ("Start mood", "Target mood")
 _STATE_REPAIR_NOTIFIED_KEY = "_state_repairs_notified"
 _STATE_DEFAULTS: dict[str, Any] = {
+    "system_initialized": False,
     "journey_start": None,
     "journey_target": None,
     "journey_start_source": "Not set",
@@ -244,6 +268,22 @@ def _state_get_show_full_3d() -> bool:
     return bool(value)
 
 
+def _state_get_system_initialized() -> bool:
+    """Return whether the immersive boot scene has been initialized."""
+    value = _restore_state_value("system_initialized", "boolean", lambda item: isinstance(item, bool))
+    return bool(value)
+
+
+def _consume_boot_query_flag() -> bool:
+    """Read query params once and flip system-initialized state when requested."""
+    boot_flag = st.query_params.get("boot")
+    if boot_flag != "1":
+        return False
+    _state_set("system_initialized", True)
+    del st.query_params["boot"]
+    return True
+
+
 def _init_state() -> None:
     """Create every session_state key used by the app."""
     for key in _STATE_DEFAULTS:
@@ -328,6 +368,472 @@ def _apply_chart_selection(chart_event: Any) -> None:
         _set_coordinate("journey_start", latest, "Mood Space")
         return
     _set_coordinate("journey_target", latest, "Mood Space")
+
+
+def _genre_hue(genre: str) -> int:
+    """Map genre text to a stable hue value for the boot-scene particle color."""
+    checksum = sum((idx + 1) * ord(ch) for idx, ch in enumerate(genre.lower()))
+    return checksum % 360
+
+
+def _boot_scene_points_json(df: pd.DataFrame, max_points: int = _BOOT_SCENE_SAMPLE_SIZE) -> str:
+    """Create a compact JSON payload for the immersive boot-scene renderer."""
+    sample_size = min(max_points, len(df))
+    if sample_size <= 0:
+        return "[]"
+    sample = df.sample(n=sample_size, random_state=42).copy()
+    if "danceability" not in sample.columns:
+        sample["danceability"] = (sample["valence"] + sample["energy"]) / 2
+
+    points: list[dict[str, float | int]] = []
+    for valence, energy, danceability, genre in zip(
+        sample["valence"],
+        sample["energy"],
+        sample["danceability"],
+        sample["genre"].astype(str),
+        strict=False,
+    ):
+        if not (_is_finite_number(valence) and _is_finite_number(energy) and _is_finite_number(danceability)):
+            continue
+        points.append({
+            "x": round(float(valence) - 0.5, 4),
+            "y": round(float(energy) - 0.5, 4),
+            "z": round(float(danceability) - 0.5, 4),
+            "h": _genre_hue(genre),
+        })
+
+    return json.dumps(points, separators=(",", ":"))
+
+
+def _boot_scene_markup(points_json: str, total_tracks: int) -> str:
+    """Build the immersive boot-scene HTML and JavaScript payload."""
+    point_count = len(json.loads(points_json))
+    markup = """
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  .boot-scene-root {
+    position: relative;
+    width: 100%;
+    height: 700px;
+    background:
+      radial-gradient(circle at 20% 20%, rgba(255, 107, 138, 0.14), rgba(255, 107, 138, 0) 45%),
+      radial-gradient(circle at 80% 80%, rgba(192, 132, 252, 0.14), rgba(192, 132, 252, 0) 44%),
+      #05020b;
+    overflow: hidden;
+    color: #f8e8f0;
+  }
+  #boot-scene-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+  .boot-scene-vignette {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle, rgba(12, 6, 18, 0) 48%, rgba(10, 4, 16, 0.75) 100%);
+    pointer-events: none;
+  }
+  .boot-scene-center {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(680px, 88vw);
+    text-align: center;
+    background: rgba(20, 10, 28, 0.58);
+    border: 1px solid rgba(255, 183, 206, 0.34);
+    border-radius: 24px;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    padding: clamp(1.2rem, 2vw, 2rem) clamp(1rem, 2vw, 2.4rem);
+    box-shadow: 0 18px 70px rgba(255, 107, 138, 0.22);
+    z-index: 4;
+  }
+  .boot-scene-kicker {
+    margin: 0 0 0.55rem;
+    font-size: 0.72rem;
+    color: rgba(255, 183, 206, 0.72);
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    font-weight: 700;
+  }
+  .boot-scene-center h1 {
+    margin: 0;
+    font-size: clamp(1.7rem, 4vw, 3rem);
+    line-height: 1.1;
+    font-weight: 800;
+    color: #ffe9f2;
+    text-shadow: 0 0 40px rgba(255, 107, 138, 0.35);
+  }
+  .boot-scene-center p {
+    margin: 0.85rem auto 0;
+    max-width: 56ch;
+    color: #c4a0b5;
+    font-size: clamp(0.88rem, 1.8vw, 1.02rem);
+    line-height: 1.55;
+  }
+  .boot-scene-center code {
+    color: #ffb7ce;
+    background: rgba(255, 183, 206, 0.12);
+    border-radius: 6px;
+    padding: 0 6px;
+  }
+  .boot-init-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1.2rem;
+    min-height: 52px;
+    padding: 0.75rem 1.8rem;
+    border-radius: 999px;
+    text-decoration: none;
+    color: #fff3f8;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    border: 1px solid rgba(255, 183, 206, 0.5);
+    background: linear-gradient(180deg, rgba(255, 141, 161, 0.82), rgba(224, 80, 122, 0.9));
+    box-shadow: 0 6px 0 rgba(135, 34, 71, 0.7), 0 18px 45px rgba(255, 107, 138, 0.4);
+    transform: translateY(0);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.2s ease;
+  }
+  .boot-init-button:hover {
+    filter: brightness(1.06);
+    transform: translateY(-1px);
+  }
+  .boot-init-button:active {
+    transform: translateY(3px);
+    box-shadow: 0 2px 0 rgba(135, 34, 71, 0.74), 0 10px 25px rgba(255, 107, 138, 0.28);
+  }
+  .boot-scene-meta {
+    margin-top: 0.85rem !important;
+    font-size: 0.76rem !important;
+    color: rgba(255, 183, 206, 0.7) !important;
+    letter-spacing: 0.05em;
+  }
+  @media (max-width: 768px) {
+    .boot-scene-root { height: 620px; }
+    .boot-scene-center {
+      width: min(92vw, 620px);
+      border-radius: 18px;
+      padding: 1rem 1rem 1.2rem;
+    }
+    .boot-init-button {
+      min-height: 48px;
+      padding: 0.65rem 1.35rem;
+    }
+  }
+  @media (max-width: 480px) {
+    .boot-scene-root { height: 570px; }
+    .boot-scene-center {
+      width: 94vw;
+      padding: 0.95rem 0.85rem 1rem;
+      border-radius: 15px;
+    }
+    .boot-scene-kicker {
+      letter-spacing: 0.16em;
+      font-size: 0.62rem;
+    }
+    .boot-scene-center p {
+      font-size: 0.82rem;
+    }
+    .boot-init-button {
+      width: 100%;
+      min-height: 46px;
+      margin-top: 0.95rem;
+    }
+  }
+</style>
+<div class="boot-scene-root" role="region" aria-label="MoodTune immersive boot scene">
+  <canvas id="boot-scene-canvas"></canvas>
+  <div class="boot-scene-vignette"></div>
+  <div class="boot-scene-center">
+    <p class="boot-scene-kicker">MoodTune Immersive System</p>
+    <h1>डेटा dekho, mood feel karo</h1>
+    <p>Scroll wheel se zoom karo, cube ke center <code>(0,0,0)</code> par lock-in karo.</p>
+    <a class="boot-init-button" id="boot-init-button" href="?boot=1" target="_top" rel="noopener">
+      Initialize System
+    </a>
+    <p class="boot-scene-meta">Rendering __POINT_COUNT__ particles from __TRACK_COUNT__ tracks</p>
+  </div>
+</div>
+<script>
+(() => {
+  const root = document.querySelector(".boot-scene-root");
+  const canvas = document.getElementById("boot-scene-canvas");
+  if (!root || !canvas) return;
+  const button = document.getElementById("boot-init-button");
+  if (button) {
+    try {
+      const topUrl = new URL(window.top.location.href);
+      topUrl.searchParams.set("boot", "1");
+      button.href = topUrl.pathname + "?" + topUrl.searchParams.toString();
+    } catch (error) {
+      const current = new URL(window.location.href);
+      current.searchParams.set("boot", "1");
+      button.href = current.pathname + "?" + current.searchParams.toString();
+    }
+  }
+
+  const ctx = canvas.getContext("2d", { alpha: true });
+  if (!ctx) return;
+  const points = __POINTS_JSON__;
+  if (!Array.isArray(points)) return;
+
+  const cubeVertices = [
+    [-0.5, -0.5, -0.5], [0.5, -0.5, -0.5], [0.5, 0.5, -0.5], [-0.5, 0.5, -0.5],
+    [-0.5, -0.5, 0.5], [0.5, -0.5, 0.5], [0.5, 0.5, 0.5], [-0.5, 0.5, 0.5],
+  ];
+  const cubeEdges = [
+    [0,1],[1,2],[2,3],[3,0],
+    [4,5],[5,6],[6,7],[7,4],
+    [0,4],[1,5],[2,6],[3,7],
+  ];
+
+  let width = 0;
+  let height = 0;
+  let cameraDistance = 2.55;
+  let cameraTarget = 2.55;
+  let pointerX = 0;
+  let pointerY = 0;
+
+  const resize = () => {
+    const dpr = window.devicePixelRatio || 1;
+    const bounds = root.getBoundingClientRect();
+    width = Math.max(1, Math.floor(root.clientWidth || bounds.width || 1));
+    height = Math.max(1, Math.floor(root.clientHeight || bounds.height || 1));
+    canvas.style.width = width + "px";
+    canvas.style.height = height + "px";
+    canvas.width = Math.floor(width * dpr);
+    canvas.height = Math.floor(height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  };
+  resize();
+  window.addEventListener("resize", resize);
+  if (typeof ResizeObserver !== "undefined") {
+    const rootResizeObserver = new ResizeObserver(resize);
+    rootResizeObserver.observe(root);
+  }
+
+  root.addEventListener(
+    "wheel",
+    (event) => {
+      event.preventDefault();
+      const direction = Math.sign(event.deltaY || 0);
+      cameraTarget = Math.min(4.8, Math.max(1.25, cameraTarget + direction * 0.18));
+    },
+    { passive: false }
+  );
+
+  root.addEventListener("pointermove", (event) => {
+    const bounds = root.getBoundingClientRect();
+    const px = (event.clientX - bounds.left) / Math.max(bounds.width, 1);
+    const py = (event.clientY - bounds.top) / Math.max(bounds.height, 1);
+    pointerX = (Math.max(0, Math.min(1, px)) - 0.5) * 2;
+    pointerY = (Math.max(0, Math.min(1, py)) - 0.5) * 2;
+  });
+
+  const rotate = (point, rx, ry) => {
+    const x1 = point.x * Math.cos(ry) - point.z * Math.sin(ry);
+    const z1 = point.x * Math.sin(ry) + point.z * Math.cos(ry);
+    const y2 = point.y * Math.cos(rx) - z1 * Math.sin(rx);
+    const z2 = point.y * Math.sin(rx) + z1 * Math.cos(rx);
+    return { x: x1, y: y2, z: z2, h: point.h };
+  };
+
+  const rotateVertex = (v, rx, ry) => {
+    const x1 = v[0] * Math.cos(ry) - v[2] * Math.sin(ry);
+    const z1 = v[0] * Math.sin(ry) + v[2] * Math.cos(ry);
+    const y2 = v[1] * Math.cos(rx) - z1 * Math.sin(rx);
+    const z2 = v[1] * Math.sin(rx) + z1 * Math.cos(rx);
+    return { x: x1, y: y2, z: z2 };
+  };
+
+  const project = (p) => {
+    const depth = Math.max(0.25, cameraDistance - p.z);
+    const scale = 420 / depth;
+    return {
+      sx: width * 0.5 + p.x * scale,
+      sy: height * 0.5 - p.y * scale,
+      scale,
+      z: p.z,
+      h: p.h ?? 330,
+    };
+  };
+
+  const drawCube = (rx, ry) => {
+    const verts = cubeVertices.map((v) => project(rotateVertex(v, rx, ry)));
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,183,206,0.48)";
+    ctx.lineWidth = 1.1;
+    for (const edge of cubeEdges) {
+      const a = verts[edge[0]];
+      const b = verts[edge[1]];
+      ctx.beginPath();
+      ctx.moveTo(a.sx, a.sy);
+      ctx.lineTo(b.sx, b.sy);
+      ctx.stroke();
+    }
+    ctx.restore();
+  };
+
+  const drawOrigin = (rx, ry) => {
+    const center = project(rotate({ x: 0, y: 0, z: 0, h: 0 }, rx, ry));
+    const glow = 8 + Math.max(0, 80 / Math.max(20, center.scale));
+    ctx.save();
+    const grad = ctx.createRadialGradient(center.sx, center.sy, 0, center.sx, center.sy, glow);
+    grad.addColorStop(0, "rgba(255,180,220,0.85)");
+    grad.addColorStop(1, "rgba(255,180,220,0)");
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(center.sx, center.sy, glow, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  };
+
+  let frame = 0;
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduceMotion) {
+    const rx = 0.34;
+    const ry = 0.22;
+    ctx.clearRect(0, 0, width, height);
+    const bg = ctx.createLinearGradient(0, 0, width, height);
+    bg.addColorStop(0, "rgba(7,4,13,0.94)");
+    bg.addColorStop(1, "rgba(17,8,24,0.96)");
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, width, height);
+    drawCube(rx, ry);
+    const projected = points
+      .map((point) => project(rotate(point, rx, ry)))
+      .sort((a, b) => a.z - b.z);
+    for (const p of projected) {
+      const size = Math.max(0.8, Math.min(3.3, p.scale * 0.018));
+      ctx.beginPath();
+      ctx.fillStyle = "rgba(255, 183, 206, 0.55)";
+      ctx.arc(p.sx, p.sy, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    drawOrigin(rx, ry);
+    return;
+  }
+
+  const render = () => {
+    frame += 1;
+    const t = frame * 0.005;
+    const rx = 0.34 + pointerY * 0.09;
+    const ry = t + pointerX * 0.12;
+    cameraDistance += (cameraTarget - cameraDistance) * 0.08;
+
+    ctx.clearRect(0, 0, width, height);
+    const bg = ctx.createLinearGradient(0, 0, width, height);
+    bg.addColorStop(0, "rgba(7,4,13,0.94)");
+    bg.addColorStop(1, "rgba(17,8,24,0.96)");
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, width, height);
+
+    drawCube(rx, ry);
+
+    const projected = points
+      .map((point) => project(rotate(point, rx, ry)))
+      .sort((a, b) => a.z - b.z);
+
+    for (const p of projected) {
+      const size = Math.max(0.8, Math.min(3.6, p.scale * 0.018));
+      const alpha = Math.max(0.18, Math.min(0.82, 0.12 + p.scale * 0.0012));
+      ctx.beginPath();
+      ctx.fillStyle = `hsla(${p.h}, 94%, 72%, ${alpha})`;
+      ctx.arc(p.sx, p.sy, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    drawOrigin(rx, ry);
+    requestAnimationFrame(render);
+  };
+  requestAnimationFrame(render);
+})();
+</script>
+"""
+    return (
+        markup.replace("__POINTS_JSON__", points_json)
+        .replace("__TRACK_COUNT__", f"{total_tracks:,}")
+        .replace("__POINT_COUNT__", f"{point_count:,}")
+    )
+
+
+def _render_immersive_boot_scene(df: pd.DataFrame) -> None:
+    """Render the immersive startup scene before entering the full app."""
+    points_json = _boot_scene_points_json(df)
+    components.html(_boot_scene_markup(points_json, len(df)), height=700, scrolling=False)
+    st.caption(
+        "Center button scene ke andar visible hai. Agar iframe navigation restrict ho,"
+        " toh नीचे ka direct initialize button use karo."
+    )
+    left, center, right = st.columns([1.2, 1.0, 1.2])
+    with center:
+        if st.button("Initialize System", key="boot_initialize_direct", type="primary", use_container_width=True):
+            _state_set("system_initialized", True)
+            st.rerun()
+
+def _ambient_word_positions(count: int) -> list[dict[str, str]]:
+    """Generate deterministic absolute positions for low-opacity ambient words."""
+    rng = random.Random(42)
+    positioned: list[dict[str, str]] = []
+    for idx in range(count):
+        word = _AMBIENT_WORDS[idx % len(_AMBIENT_WORDS)]
+        top = f"{rng.randint(4, 92)}vh"
+        left = f"{rng.randint(2, 96)}vw"
+        delay = f"{rng.uniform(-14.0, 0.0):.2f}s"
+        duration = f"{rng.uniform(16.0, 32.0):.2f}s"
+        positioned.append({
+            "word": word,
+            "top": top,
+            "left": left,
+            "delay": delay,
+            "duration": duration,
+        })
+    return positioned
+
+
+def _render_ambient_word_layer() -> None:
+    """Attach floating, low-opacity music words behind the main content."""
+    words = _ambient_word_positions(26)
+    spans = "".join(
+        (
+            f'<span class="ambient-word" style="top:{escape(item["top"])};'
+            f'left:{escape(item["left"])};animation-delay:{escape(item["delay"])};'
+            f'animation-duration:{escape(item["duration"])}">{escape(item["word"])}</span>'
+        )
+        for item in words
+    )
+    st.html(f'<div id="ambient-word-layer" aria-hidden="true">{spans}</div>')
+
+
+def _render_initialized_header(df: pd.DataFrame) -> None:
+    """Render the redesigned Hindi-forward header after initialization."""
+    n_genres = df["genre"].nunique() if "genre" in df.columns else 0
+    st.html(
+        f"""
+        <section class="v2-hero">
+            <p class="v2-kicker">Mood Navigation Engine</p>
+            <h1>MoodTune सिस्टम</h1>
+            <p class="v2-subtitle">
+                Ab mood ko map karo, safar build karo, aur music ke through emotional shift ko live dekho.
+            </p>
+            <div class="v2-pill-row">
+                <span class="v2-pill">🎵 {len(df):,} tracks</span>
+                <span class="v2-pill">🎯 {DEFAULT_JOURNEY_STEPS} step default</span>
+                <span class="v2-pill">🎸 {n_genres} genres</span>
+                <span class="v2-pill">🧠 KDTree + NLP mapping</span>
+            </div>
+        </section>
+        """
+    )
 
 
 # ── shared UI blocks ───────────────────────────────────────────────────────────
@@ -604,20 +1110,20 @@ def _render_mood_space_tab(df: pd.DataFrame) -> None:
         """
     )
 
-    st.title("MoodTune")
+    st.markdown("## Mood Space Studio | मूड मैप स्टूडियो")
     st.caption(
-        "Set a start mood and a target mood using song particles, free text, or the classic survey. "
-        f"{len(df):,} tracks are ready for exploration."
+        "Start mood aur target mood set karo using song particles, text input, ya classic survey. "
+        f"{len(df):,} tracks exploration ke liye ready hain."
     )
     _render_selection_summary()
 
-    st.markdown("### Natural-language mood mapping")
+    st.markdown("### Text se mood map karo")
     _render_text_mapper()
 
     st.markdown("### Mood-space explorer")
     st.caption(
-        "Select real song points in the chart. "
-        "Use the radio control above to choose whether the next click sets the start or target mood."
+        "Chart ke real song points select karo. "
+        "Radio control choose karega ki next click start mood set kare ya target mood."
     )
     figure = mood_space_figure(
         df,
@@ -634,21 +1140,25 @@ def _render_mood_space_tab(df: pd.DataFrame) -> None:
     )
     _apply_chart_selection(chart_event)
     st.caption(
-        "Chart description: this 2D chart maps each track by valence (x-axis) and energy (y-axis). "
-        "Start and target markers appear when selected."
+        "2D chart description: har track valence (x-axis) aur energy (y-axis) par mapped hai. "
+        "Start aur target markers selection ke baad dikhte hain."
     )
 
     # 3D Mood Space
-    with st.expander("3D Mood Space — rotate, zoom, explore", expanded=False):
+    with st.expander("Immersive 3D Mood Cube — rotate • zoom • explore", expanded=False):
         preview_sample = min(DEFAULT_3D_SAMPLE, len(df))
         showing_full_3d = _state_get_show_full_3d()
         if len(df) > preview_sample and not showing_full_3d:
-            if st.button(f"Show more points ({len(df):,} total)", key="show_more_3d", use_container_width=True):
+            if st.button(
+                f"Aur points dikhao ({len(df):,} total)",
+                key="show_more_3d",
+                use_container_width=True,
+            ):
                 _state_set("show_full_3d", True)
                 st.rerun()
         if len(df) > preview_sample and showing_full_3d:
             if st.button(
-                f"Back to faster preview ({preview_sample:,} points)",
+                f"Fast preview par wapas ({preview_sample:,} points)",
                 key="show_less_3d",
                 use_container_width=True,
             ):
@@ -658,7 +1168,7 @@ def _render_mood_space_tab(df: pd.DataFrame) -> None:
 
         st.caption(
             "Three axes: **Valence** (sad → happy) · **Energy** (chill → intense) · "
-            "**Danceability** (still → groove). Genre uses both colour and marker symbols."
+            "**Danceability** (still → groove). Genre dono: colour + marker symbols use karta hai."
         )
         with st.spinner("Building 3D mood space..."):
             fig_3d = mood_space_3d_figure(df, sample_size=sample_size)
@@ -668,8 +1178,8 @@ def _render_mood_space_tab(df: pd.DataFrame) -> None:
             config={"displaylogo": False},
         )
         st.caption(
-            "Chart description: each point is a song in 3D mood space. "
-            "Colour and marker shape both encode genre groups for accessibility."
+            "3D chart description: har point ek song hai. "
+            "Colour aur marker shape dono genre groups encode karte hain for accessibility."
         )
 
     _render_survey_fallback(df)
@@ -677,27 +1187,27 @@ def _render_mood_space_tab(df: pd.DataFrame) -> None:
 
 def _render_journey_tab(df: pd.DataFrame) -> None:
     """Render the generated journey playlist and supporting charts."""
-    st.markdown("## Journey Playlist")
+    st.markdown("## Journey Playlist | Mood Safar")
 
     start = _state_get_coordinate("journey_start")
     target = _state_get_coordinate("journey_target")
     if start is None or target is None:
-        st.warning("Set both a start mood and a target mood in the Mood Space tab to generate a journey.")
+        st.warning("Journey generate karne ke liye Mood Space tab mein start aur target dono mood set karo.")
         return
 
     st.slider(
-        "Journey length",
+        "Journey length | Safar steps",
         min_value=8,
         max_value=24,
         key="journey_steps",
-        help="Longer playlists create smoother transitions through the mood space.",
+        help="Longer playlist usually smoother emotional transition deti hai.",
     )
 
     with st.spinner("Generating your mood journey..."):
         journey_df = _build_journey_dataframe(df)
 
     if journey_df.empty:
-        st.error("No journey could be generated from the current selection.")
+        st.error("Current selection se journey generate nahi ho paayi.")
         return
 
     c1, c2, c3 = st.columns(3)
@@ -717,22 +1227,22 @@ def _render_journey_tab(df: pd.DataFrame) -> None:
         config={"scrollZoom": False, "displaylogo": False},
     )
     st.caption(
-        "Chart description: this shows the generated path from start mood to target mood through selected tracks."
+        "Chart description: selected tracks ke through start mood se target mood tak generated path."
     )
 
     st.plotly_chart(journey_progress_figure(journey_df), use_container_width=True)
     st.caption(
-        "Chart description: line chart of valence and energy progression at each playlist step."
+        "Chart description: har step par valence aur energy progression line chart."
     )
 
-    st.markdown("### Your journey")
+    st.markdown("### Tumhara mood safar")
     _render_song_cards(journey_df)
 
 
 def _render_data_lab_tab() -> None:
     """Render the professor-facing cleaning pipeline walkthrough."""
-    st.markdown("## Data Lab")
-    st.caption("This tab demonstrates the raw CSV cleaning pipeline that prepares the recommendation dataset.")
+    st.markdown("## Data Lab | डेटा प्रयोगशाला")
+    st.caption("Yah tab raw CSV cleaning pipeline ko step-by-step dikhata hai.")
 
     if not RAW_DATA_PATH.exists():
         st.info(
@@ -784,7 +1294,7 @@ def _render_data_lab_tab() -> None:
 
 def _render_how_it_works_tab(df: pd.DataFrame) -> None:
     """Render the professor-demo explanation tab."""
-    st.markdown("## How It Works")
+    st.markdown("## How It Works | यह कैसे काम करता है")
     st.markdown(
         f"""
 MoodTune turns **{len(df):,} songs** into a navigable emotional map.
@@ -833,11 +1343,25 @@ def main() -> None:
     """Render the full MoodTune application."""
     _inject_css()
     _init_state()
+    if _consume_boot_query_flag():
+        st.rerun()
 
     with st.spinner("Loading dataset..."):
         df = load_full_dataset()
 
-    tabs = st.tabs(["Mood Space", "Journey", "Data Lab", "How It Works"])
+    if not _state_get_system_initialized():
+        _render_immersive_boot_scene(df)
+        return
+
+    _render_ambient_word_layer()
+    _render_initialized_header(df)
+
+    tabs = st.tabs([
+        "Mood Space (मूड मैप)",
+        "Journey (सफ़र)",
+        "Data Lab (डेटा)",
+        "How It Works (कैसे)",
+    ])
     with tabs[0]:
         _render_mood_space_tab(df)
     with tabs[1]:

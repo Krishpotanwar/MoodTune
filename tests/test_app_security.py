@@ -6,6 +6,18 @@ from typing import Any, cast
 import ui.app as app
 
 
+class _MockQueryParams(dict[str, str]):
+    """Minimal query-params helper supporting get/del for app tests."""
+
+    def __init__(self, initial: dict[str, str]) -> None:
+        super().__init__(initial)
+        self.deleted_keys: list[str] = []
+
+    def __delitem__(self, key: str) -> None:
+        self.deleted_keys.append(key)
+        super().__delitem__(key)
+
+
 def test_song_card_markup_escapes_html() -> None:
     markup = app._song_card_markup(
         step_num=1,
@@ -70,3 +82,46 @@ def test_state_show_full_3d_repair_uses_default_false() -> None:
         "_state_repairs_notified": {},
     })
     assert app._state_get_show_full_3d() is False
+
+
+def test_consume_boot_query_flag_ignores_absent_boot_param() -> None:
+    query_params = _MockQueryParams({"tab": "journey", "lang": "hi"})
+    app.st.query_params = cast(Any, query_params)
+    app.st.session_state = cast(Any, {})
+
+    consumed = app._consume_boot_query_flag()
+
+    assert consumed is False
+    assert "system_initialized" not in app.st.session_state
+    assert dict(query_params) == {"tab": "journey", "lang": "hi"}
+    assert query_params.deleted_keys == []
+
+
+def test_consume_boot_query_flag_sets_state_and_removes_only_boot() -> None:
+    query_params = _MockQueryParams({"boot": "1", "tab": "journey", "lang": "hi"})
+    app.st.query_params = cast(Any, query_params)
+    app.st.session_state = cast(Any, {})
+
+    consumed = app._consume_boot_query_flag()
+
+    assert consumed is True
+    assert app.st.session_state["system_initialized"] is True
+    assert dict(query_params) == {"tab": "journey", "lang": "hi"}
+    assert query_params.deleted_keys == ["boot"]
+
+
+def test_state_get_system_initialized_defaults_to_false_when_missing() -> None:
+    app.st.session_state = cast(Any, {})
+    value = app._state_get_system_initialized()
+    assert value is False
+    assert app.st.session_state["system_initialized"] is False
+
+
+def test_state_get_system_initialized_repairs_invalid_value_to_false() -> None:
+    app.st.session_state = cast(Any, {
+        "system_initialized": "yes",
+        "_state_repairs_notified": {},
+    })
+    value = app._state_get_system_initialized()
+    assert value is False
+    assert app.st.session_state["system_initialized"] is False

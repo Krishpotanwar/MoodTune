@@ -1,6 +1,6 @@
 # 🎵 MoodTune — Navigate Music Through Emotional Space
 
-> **MoodTune** transforms 81,000+ songs into an interactive 3D mood map, letting you journey from how you feel now to how you want to feel — with AI-curated playlists that bridge the emotional gap.
+> **MoodTune** transforms 81,000+ songs into an interactive 3D mood map, now starting with an immersive boot scene before you initialize the full mood journey system.
 
 **🌐 [Try it live → moodtune.streamlit.app](https://moodtune-cayerjwf67tt46ppthmeei.streamlit.app)**
 
@@ -15,6 +15,14 @@
 MoodTune is a music discovery app that treats emotional navigation like **path planning through mood space**. Instead of recommending songs that match one static mood, it generates a **journey playlist** — a sequence of 18 tracks that smoothly transitions from where you are emotionally to where you want to be.
 
 The app maps every song into a 3D emotional coordinate (Valence × Energy × Danceability), then uses a **KDTree nearest-neighbour algorithm** to plot the optimal path between any two moods. The result is a visually explorable playlist where you can see the emotional arc unfold in real-time.
+
+### New UI V2 highlights
+
+- **Immersive boot scene**: rotating scatter-in-cube view with center-focused zoom behavior.
+- **Initialize gate**: system launches into full app only after explicit initialization.
+- **Ambient motion layer**: low-opacity musical keywords floating behind content.
+- **Hindi-forward UX labels**: core tabs and captions now use bilingual wording for stronger personality.
+- **Overlap hardening**: improved responsive spacing and typography controls to reduce text collisions.
 
 **Built as a demo project** showcasing spatial search, NLP mood parsing, and interactive 3D visualization in a consumer-facing music app.
 

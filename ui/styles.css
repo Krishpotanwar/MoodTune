@@ -40,6 +40,10 @@
   --transition-smooth: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+html, body {
+  overflow-x: hidden;
+}
+
 /* ── Global resets & font ───────────────────────────────────── */
 *, *::before, *::after {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
@@ -71,6 +75,156 @@ section[data-testid="stSidebar"] {
   background: transparent !important;
   padding-top: 1.2rem !important;
   max-width: 1100px !important;
+}
+
+/* ── Ambient musical word layer ─────────────────────────────── */
+#ambient-word-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.ambient-word {
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: rgba(255, 183, 206, 0.08);
+  font-size: clamp(0.8rem, 1.5vw, 1.3rem);
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  text-transform: lowercase;
+  white-space: nowrap;
+  user-select: none;
+  animation-name: ambientFloat;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes ambientFloat {
+  0% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0.03;
+  }
+  25% {
+    transform: translate3d(-10px, -7px, 0);
+    opacity: 0.08;
+  }
+  50% {
+    transform: translate3d(9px, -13px, 0);
+    opacity: 0.05;
+  }
+  75% {
+    transform: translate3d(-6px, -19px, 0);
+    opacity: 0.07;
+  }
+  100% {
+    transform: translate3d(0, -25px, 0);
+    opacity: 0.03;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient-word {
+    animation: none !important;
+    opacity: 0.04 !important;
+  }
+}
+
+/* ── Post-init v2 hero ──────────────────────────────────────── */
+.v2-hero {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  margin: 0 auto 1.4rem;
+  width: min(980px, 96%);
+  padding: clamp(1.2rem, 3vw, 2.1rem);
+  border-radius: 18px;
+  border: 1px solid var(--glass-border-hi);
+  background: linear-gradient(
+      135deg,
+      rgba(255, 107, 138, 0.12),
+      rgba(192, 132, 252, 0.09)
+    ),
+    rgba(17, 8, 24, 0.58);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 14px 45px rgba(255, 107, 138, 0.18);
+}
+
+.v2-kicker {
+  margin: 0;
+  color: var(--pink-300);
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.v2-hero h1 {
+  margin: 0.35rem 0 0;
+  font-size: clamp(1.8rem, 5vw, 3.3rem) !important;
+  letter-spacing: -0.02em;
+  color: #ffe9f2 !important;
+  text-shadow: 0 0 40px rgba(255, 107, 138, 0.35);
+}
+
+.v2-subtitle {
+  margin: 0.7rem auto 0;
+  color: var(--text-secondary);
+  max-width: 74ch;
+  line-height: 1.55;
+  font-size: clamp(0.9rem, 2vw, 1.05rem);
+}
+
+.v2-pill-row {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.55rem;
+}
+
+.v2-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  border-radius: 999px;
+  padding: 0 12px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--pink-200);
+  border: 1px solid rgba(255, 183, 206, 0.34);
+  background: rgba(255, 183, 206, 0.11);
+}
+
+[data-testid="stElementToolbar"] {
+  display: none !important;
+}
+
+.stButton > button {
+  border-radius: 999px !important;
+}
+
+.stButton > button[kind="primary"],
+.stButton > button[data-testid="stBaseButton-primary"] {
+  border: 1px solid rgba(255, 183, 206, 0.52) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 141, 161, 0.82), rgba(224, 80, 122, 0.92)) !important;
+  box-shadow:
+    0 6px 0 rgba(135, 34, 71, 0.72),
+    0 14px 30px rgba(255, 107, 138, 0.25) !important;
+}
+
+.stButton > button[kind="primary"]:active,
+.stButton > button[data-testid="stBaseButton-primary"]:active {
+  transform: translateY(3px) !important;
+  box-shadow:
+    0 2px 0 rgba(135, 34, 71, 0.72),
+    0 8px 16px rgba(255, 107, 138, 0.2) !important;
 }
 
 /* ── Glassmorphism mixin via class ──────────────────────────── */
@@ -1057,6 +1211,16 @@ header[data-testid="stHeader"] {
   .song-card-title {
     font-size: 0.88rem;
   }
+
+  .v2-hero {
+    width: min(98%, 860px);
+    border-radius: 15px;
+  }
+
+  .v2-pill {
+    font-size: 0.7rem;
+    min-height: 30px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1135,5 +1299,24 @@ header[data-testid="stHeader"] {
   .stat-badge {
     font-size: 0.66rem;
     padding: 2px 8px;
+  }
+
+  .v2-hero {
+    margin-bottom: 1rem;
+    padding: 0.95rem 0.75rem 1.1rem;
+  }
+
+  .v2-subtitle {
+    font-size: 0.85rem;
+  }
+
+  .v2-pill-row {
+    gap: 0.42rem;
+  }
+
+  .v2-pill {
+    font-size: 0.64rem;
+    padding: 0 9px;
+    min-height: 28px;
   }
 }
