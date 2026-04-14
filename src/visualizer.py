@@ -22,17 +22,19 @@ if __package__ in (None, ""):
 
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.config import DEFAULT_SCATTER_SAMPLE, MOOD_AXIS_MAX, MOOD_AXIS_MIN
+from src.config import DEFAULT_3D_SAMPLE, DEFAULT_SCATTER_SAMPLE, MOOD_AXIS_MAX, MOOD_AXIS_MIN
 
 # ── theme constants ────────────────────────────────────────────────────────────
 
-_BG_MAIN  = "#0f0f1a"
-_BG_CARD  = "#1a1a2e"
+_BG_MAIN  = "#000000"   # pure black — best contrast for Plasma colorscale
+_BG_CARD  = "#0a0a0a"   # near-black for plot area
 _ACCENT   = "#a855f7"
 _CYAN     = "#06b6d4"
 _CORAL    = "#ff6b6b"
 _MINT     = "#7ae7c7"
 _GOLD     = "#f7b538"
+_PINK     = "#ff6b8a"   # baby pink primary
+_LAVENDER = "#c084fc"   # lavender secondary
 
 _FEATURE_LABELS: list[str] = ["Energy", "Valence", "Tempo", "Acousticness"]
 _FEATURE_KEYS:   list[str] = ["energy", "valence", "tempo_norm", "acousticness"]
@@ -442,6 +444,123 @@ def journey_progress_figure(journey_df: pd.DataFrame) -> go.Figure:
         font=dict(color="white"),
         legend=dict(bgcolor=_BG_CARD, bordercolor="#444"),
         margin=dict(t=60, b=40),
+    )
+    return fig
+
+
+def mood_space_3d_figure(
+    df: pd.DataFrame,
+    sample_size: int = DEFAULT_3D_SAMPLE,
+) -> go.Figure:
+    """
+    Interactive 3D scatter of the full dataset in (Valence × Energy × Danceability) space.
+
+    Up to `sample_size` tracks are rendered (default 25,000).  Rotatable,
+    zoomable, and pannable via Plotly's built-in 3D WebGL renderer.
+
+    Args:
+        df:          Full track dataframe.
+        sample_size: Number of points to render (random sample, random_state=42).
+
+    Returns:
+        Plotly 3D Figure.
+    """
+    sample = df.sample(n=min(sample_size, len(df)), random_state=42).copy()
+
+    # Encode genre as a numeric index for Plasma colorscale
+    genres = sample["genre"].astype(str)
+    unique_genres = genres.unique()
+    genre_to_idx = {g: i for i, g in enumerate(sorted(unique_genres))}
+    color_vals = genres.map(genre_to_idx).values
+    n_genres = max(1, len(unique_genres))
+
+    hover = (
+        sample["track_name"].astype(str)
+        + "<br>"
+        + sample["artist_name"].astype(str)
+        + "<br>"
+        + genres
+    )
+
+    fig = go.Figure(
+        data=[
+            go.Scatter3d(
+                x=sample["valence"],
+                y=sample["energy"],
+                z=sample["danceability"],
+                mode="markers",
+                marker=dict(
+                    size=2,
+                    opacity=0.65,
+                    color=color_vals,
+                    colorscale="Plasma",
+                    cmin=0,
+                    cmax=n_genres - 1,
+                    colorbar=dict(
+                        title="Genre",
+                        thickness=12,
+                        len=0.6,
+                        tickvals=[0, n_genres // 2, n_genres - 1],
+                        ticktext=[
+                            sorted(unique_genres)[0],
+                            sorted(unique_genres)[n_genres // 2],
+                            sorted(unique_genres)[-1],
+                        ],
+                        tickfont=dict(color=_PINK, size=9),
+                        titlefont=dict(color=_PINK, size=10),
+                    ),
+                ),
+                customdata=np.stack(
+                    [sample["track_name"], sample["artist_name"], genres,
+                     sample["valence"], sample["energy"], sample["danceability"]],
+                    axis=1,
+                ),
+                hovertemplate=(
+                    "<b>%{customdata[0]}</b><br>"
+                    "%{customdata[1]}<br>"
+                    "%{customdata[2]}<br>"
+                    "V:%{customdata[3]:.2f}  "
+                    "E:%{customdata[4]:.2f}  "
+                    "D:%{customdata[5]:.2f}"
+                    "<extra></extra>"
+                ),
+            )
+        ]
+    )
+
+    axis_style = dict(
+        backgroundcolor=_BG_MAIN,
+        gridcolor="rgba(255, 107, 138, 0.4)",
+        showbackground=True,
+        tickfont=dict(color=_PINK, size=9),
+        title_font=dict(color=_PINK, size=11),
+        zerolinecolor="rgba(255, 107, 138, 0.2)",
+    )
+
+    fig.update_layout(
+        scene=dict(
+            xaxis=dict(title="Valence (sad → happy)", **axis_style),
+            yaxis=dict(title="Energy (chill → intense)", **axis_style),
+            zaxis=dict(title="Danceability (still → groove)", **axis_style),
+            bgcolor=_BG_MAIN,
+        ),
+        paper_bgcolor=_BG_MAIN,
+        font=dict(color=_PINK),
+        margin=dict(t=60, b=0, l=0, r=0),
+        height=600,
+        annotations=[
+            dict(
+                text=(
+                    f"Showing {len(sample):,} of {len(df):,} tracks  •  "
+                    "Drag to rotate  •  Scroll to zoom"
+                ),
+                xref="paper", yref="paper",
+                x=0.5, y=0.01,
+                showarrow=False,
+                font=dict(color="rgba(255, 107, 138, 0.55)", size=10),
+                align="center",
+            )
+        ],
     )
     return fig
 

@@ -17,14 +17,26 @@ import streamlit as st
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_PROJECT_ROOT))
 
-from src.config import CLEAN_DATA_PATH, DEFAULT_JOURNEY_STEPS, DEFAULT_PLAYLIST_SIZE, LOG_PATH
-from src.config import RAW_DATA_PATH, SAMPLE_DATA_PATH
+from src.config import (
+    CLEAN_DATA_PATH,
+    DEFAULT_JOURNEY_STEPS,
+    DEFAULT_PLAYLIST_SIZE,
+    LOG_PATH,
+    RAW_DATA_PATH,
+    STYLE_PATH,
+)
+from src.data_loader import load_full_dataset
 from src.journey import build_journey_tree, generate_mood_journey, journey_to_dataframe
 from src.mood_mapper import SURVEY_QUESTIONS, map_to_vector
 from src.nlp_mood import text_to_mood_vector
 from src.recommender import build_model, recommend
 from src.validator import get_cleaning_steps_log, run_pipeline
-from src.visualizer import feature_correlation_heatmap, journey_progress_figure, mood_space_figure
+from src.visualizer import (
+    feature_correlation_heatmap,
+    journey_progress_figure,
+    mood_space_3d_figure,
+    mood_space_figure,
+)
 
 st.set_page_config(
     page_title="MoodTune",
@@ -33,31 +45,31 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-_DEMO_MODE: bool = not RAW_DATA_PATH.exists() and not CLEAN_DATA_PATH.exists()
+
+# ── CSS injection ──────────────────────────────────────────────────────────────
+
+def _inject_css() -> None:
+    """Load and inject the custom stylesheet into the Streamlit app."""
+    if STYLE_PATH.exists():
+        css = STYLE_PATH.read_text(encoding="utf-8")
+        st.html(f"<style>{css}</style>")
 
 
-@st.cache_data(show_spinner=False)
-def _load_clean_df() -> pd.DataFrame:
-    """Load the clean dataset, falling back to sample data when needed."""
-    if CLEAN_DATA_PATH.exists():
-        return pd.read_csv(CLEAN_DATA_PATH)
-    if RAW_DATA_PATH.exists():
-        run_pipeline(RAW_DATA_PATH, CLEAN_DATA_PATH, LOG_PATH)
-        return pd.read_csv(CLEAN_DATA_PATH)
-    return pd.read_csv(SAMPLE_DATA_PATH)
-
+# ── cached data ────────────────────────────────────────────────────────────────
 
 @st.cache_resource(show_spinner=False)
 def _get_recommender_model():
-    """Build the classic nearest-neighbour model once per dataset state."""
-    return build_model(_load_clean_df())
+    """Build the nearest-neighbour model once per dataset state."""
+    return build_model(load_full_dataset())
 
 
 @st.cache_resource(show_spinner=False)
 def _get_journey_tree():
-    """Build the KDTree used by the journey engine once per dataset state."""
-    return build_journey_tree(_load_clean_df())
+    """Build the KDTree for the journey engine once per dataset state."""
+    return build_journey_tree(load_full_dataset())
 
+
+# ── session state ──────────────────────────────────────────────────────────────
 
 def _init_state() -> None:
     """Create every session_state key used by the app."""
@@ -78,6 +90,8 @@ def _init_state() -> None:
         if key not in st.session_state:
             st.session_state[key] = value
 
+
+# ── coordinate helpers ─────────────────────────────────────────────────────────
 
 def _set_coordinate(key: str, coord: tuple[float, float], source: str) -> None:
     """Store one mood coordinate in session state with a readable source tag."""
@@ -112,6 +126,8 @@ def _quadrant_label(coord: tuple[float, float] | None) -> str:
         return "Calm"
     return "Melancholic"
 
+
+# ── chart event parsing ────────────────────────────────────────────────────────
 
 def _coerce_mapping(obj: Any) -> dict[str, Any]:
     """Turn dict-like Streamlit selection objects into plain dictionaries."""
@@ -153,6 +169,8 @@ def _apply_chart_selection(chart_event: Any) -> None:
         return
     _set_coordinate("journey_target", latest, "Mood Space")
 
+
+# ── shared UI blocks ───────────────────────────────────────────────────────────
 
 def _render_selection_summary() -> None:
     """Show the currently active mood coordinates and their source."""
@@ -291,7 +309,8 @@ def _render_survey_result(df: pd.DataFrame) -> None:
             _reset_survey()
             st.rerun()
 
-    instant = recommend(_get_recommender_model(), df, result["vector"], k=DEFAULT_PLAYLIST_SIZE)
+    with st.spinner("Finding instant matches..."):
+        instant = recommend(_get_recommender_model(), df, result["vector"], k=DEFAULT_PLAYLIST_SIZE)
     st.markdown("##### Classic instant matches")
     st.dataframe(
         instant[["track_name", "artist_name", "genre", "similarity_pct"]],
@@ -317,6 +336,8 @@ def _render_survey_fallback(df: pd.DataFrame) -> None:
         _render_survey_result(df)
 
 
+# ── journey helpers ────────────────────────────────────────────────────────────
+
 def _build_journey_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     """Generate the current mood journey as a dataframe."""
     start = st.session_state["journey_start"]
@@ -333,24 +354,61 @@ def _build_journey_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     return journey_to_dataframe(journey)
 
 
-def _playlist_view(df: pd.DataFrame) -> pd.DataFrame:
-    """Shape the journey dataframe for a clean table display."""
-    view = df.copy()
-    view["step"] = view["waypoint_idx"] + 1
-    if "track_id" in view.columns:
-        view["spotify"] = view["track_id"].apply(
-            lambda value: f"https://open.spotify.com/track/{value}"
-            if str(value).strip() and str(value) != "nan"
-            else None
-        )
-    columns = ["step", "track_name", "artist_name", "genre", "valence", "energy", "transition_score"]
-    if "spotify" in view.columns:
-        columns.append("spotify")
-    return view[columns]
+def _spotify_search_url(track_name: str, artist_name: str) -> str:
+    """Build a Spotify web search URL for a track."""
+    query = f"{track_name} {artist_name}".replace(" ", "+")
+    return f"https://open.spotify.com/search/{query}"
 
+
+def _render_song_cards(journey_df: pd.DataFrame) -> None:
+    """Render the journey playlist as a 3-column card grid."""
+    rows = [journey_df.iloc[i:i + 3] for i in range(0, len(journey_df), 3)]
+    for row_df in rows:
+        cols = st.columns(3)
+        for col, (_, track) in zip(cols, row_df.iterrows()):
+            step_num = int(track["waypoint_idx"]) + 1
+            track_name = str(track.get("track_name", "Unknown"))
+            artist = str(track.get("artist_name", ""))
+            genre = str(track.get("genre", ""))
+            valence = float(track.get("valence", 0.0))
+            energy = float(track.get("energy", 0.0))
+
+            with col:
+                st.html(
+                    f"""
+                    <div class="song-card">
+                        <div class="song-card-step">Step {step_num}</div>
+                        <div class="song-card-title">{track_name}</div>
+                        <div class="song-card-artist">{artist}</div>
+                        <div class="song-card-genre">{genre}</div>
+                        <div class="song-card-badges">
+                            <span class="stat-badge">V {valence:.2f}</span>
+                            <span class="stat-badge">E {energy:.2f}</span>
+                        </div>
+                    </div>
+                    """
+                )
+                search_url = _spotify_search_url(track_name, artist)
+                st.link_button("Open Spotify", search_url, use_container_width=True)
+
+
+# ── tab renderers ──────────────────────────────────────────────────────────────
 
 def _render_mood_space_tab(df: pd.DataFrame) -> None:
     """Render the interactive mood-space explorer."""
+    # hero stats
+    n_genres = df["genre"].nunique() if "genre" in df.columns else 0
+    st.html(
+        f"""
+        <div class="hero-stats">
+            <span class="stat-badge">🎵 {len(df):,} tracks</span>
+            <span class="stat-badge">🎯 {DEFAULT_JOURNEY_STEPS}-step journey</span>
+            <span class="stat-badge">🧠 KDTree + NLP</span>
+            <span class="stat-badge">🎸 {n_genres} genres</span>
+        </div>
+        """
+    )
+
     st.title("MoodTune")
     st.caption(
         "Set a start mood and a target mood using song particles, free text, or the classic survey. "
@@ -362,7 +420,10 @@ def _render_mood_space_tab(df: pd.DataFrame) -> None:
     _render_text_mapper()
 
     st.markdown("### Mood-space explorer")
-    st.caption("Select real song points in the chart. Use the radio control above to choose whether the next click sets the start or target mood.")
+    st.caption(
+        "Select real song points in the chart. "
+        "Use the radio control above to choose whether the next click sets the start or target mood."
+    )
     figure = mood_space_figure(
         df,
         start_coord=st.session_state["journey_start"],
@@ -377,6 +438,20 @@ def _render_mood_space_tab(df: pd.DataFrame) -> None:
         config={"scrollZoom": False, "displaylogo": False},
     )
     _apply_chart_selection(chart_event)
+
+    # 3D Mood Space
+    with st.expander("3D Mood Space — rotate, zoom, explore", expanded=False):
+        st.caption(
+            "Three axes: **Valence** (sad → happy) · **Energy** (chill → intense) · "
+            "**Danceability** (still → groove). Coloured by genre using the Plasma colorscale."
+        )
+        with st.spinner("Building 3D mood space..."):
+            fig_3d = mood_space_3d_figure(df)
+        st.plotly_chart(
+            fig_3d,
+            use_container_width=True,
+            config={"displaylogo": False},
+        )
 
     _render_survey_fallback(df)
 
@@ -397,7 +472,9 @@ def _render_journey_tab(df: pd.DataFrame) -> None:
         help="Longer playlists create smoother transitions through the mood space.",
     )
 
-    journey_df = _build_journey_dataframe(df)
+    with st.spinner("Generating your mood journey..."):
+        journey_df = _build_journey_dataframe(df)
+
     if journey_df.empty:
         st.error("No journey could be generated from the current selection.")
         return
@@ -405,7 +482,7 @@ def _render_journey_tab(df: pd.DataFrame) -> None:
     c1, c2, c3 = st.columns(3)
     c1.metric("Start mood", _quadrant_label(st.session_state["journey_start"]))
     c2.metric("Target mood", _quadrant_label(st.session_state["journey_target"]))
-    c3.metric("Average transition score", f"{journey_df['transition_score'].mean():.3f}")
+    c3.metric("Avg transition score", f"{journey_df['transition_score'].mean():.3f}")
 
     mood_fig = mood_space_figure(
         df,
@@ -419,25 +496,10 @@ def _render_journey_tab(df: pd.DataFrame) -> None:
         config={"scrollZoom": False, "displaylogo": False},
     )
 
-    drift_col, playlist_col = st.columns([1.0, 1.2])
-    with drift_col:
-        st.plotly_chart(journey_progress_figure(journey_df), use_container_width=True)
-    with playlist_col:
-        st.markdown("### Ordered playlist")
-        playlist = _playlist_view(journey_df)
-        column_config: dict[str, Any] = {
-            "valence": st.column_config.ProgressColumn("Valence", min_value=0.0, max_value=1.0, format="%.2f"),
-            "energy": st.column_config.ProgressColumn("Energy", min_value=0.0, max_value=1.0, format="%.2f"),
-            "transition_score": st.column_config.NumberColumn("Transition", format="%.3f"),
-        }
-        if "spotify" in playlist.columns:
-            column_config["spotify"] = st.column_config.LinkColumn("Spotify")
-        st.dataframe(
-            playlist,
-            hide_index=True,
-            use_container_width=True,
-            column_config=column_config,
-        )
+    st.plotly_chart(journey_progress_figure(journey_df), use_container_width=True)
+
+    st.markdown("### Your journey")
+    _render_song_cards(journey_df)
 
 
 def _render_data_lab_tab() -> None:
@@ -446,21 +508,20 @@ def _render_data_lab_tab() -> None:
     st.caption("This tab demonstrates the raw CSV cleaning pipeline that prepares the recommendation dataset.")
 
     if not RAW_DATA_PATH.exists():
-        if _DEMO_MODE:
-            st.info(
-                "Demo mode is active with the bundled sample dataset. "
-                "Add the full Kaggle CSV at `data/raw/spotify_tracks.csv` to run the cleaning pipeline live."
-            )
-        else:
-            st.error("The raw Kaggle CSV was not found at `data/raw/spotify_tracks.csv`.")
+        st.info(
+            "Demo mode is active. "
+            "Add the full Kaggle CSV at `data/raw/spotify_tracks.csv` to run the cleaning pipeline live."
+        )
         return
 
     if st.button("Run validation pipeline", type="primary"):
         raw_df = pd.read_csv(RAW_DATA_PATH)
-        clean_df = run_pipeline(RAW_DATA_PATH, CLEAN_DATA_PATH, LOG_PATH)
+
+        with st.spinner("Running cleaning pipeline..."):
+            clean_df = run_pipeline(RAW_DATA_PATH, CLEAN_DATA_PATH, LOG_PATH)
         steps = get_cleaning_steps_log()
 
-        _load_clean_df.clear()
+        load_full_dataset.clear()
         _get_recommender_model.clear()
         _get_journey_tree.clear()
 
@@ -469,7 +530,7 @@ def _render_data_lab_tab() -> None:
         metric_cols[0].metric("Raw rows", f"{len(raw_df):,}")
         metric_cols[1].metric("Clean rows", f"{len(clean_df):,}")
         metric_cols[2].metric("Retention", f"{len(clean_df) / len(raw_df) * 100:.1f}%")
-        metric_cols[3].metric("Genres", str(clean_df['genre'].nunique()))
+        metric_cols[3].metric("Genres", str(clean_df["genre"].nunique()))
 
         st.markdown("### Cleaning steps")
         for step in steps:
@@ -504,8 +565,10 @@ MoodTune turns **{len(df):,} songs** into a navigable emotional map.
 1. **Input layer**
    Survey answers, mood-space selections, and natural-language text all map to a `(valence, energy)` coordinate.
 2. **Journey engine**
-   A SciPy `KDTree` indexes the full dataset. The app interpolates waypoints between your start and target moods, then picks nearby songs while penalizing abrupt tempo jumps.
-3. **Visualization**
+   A SciPy `KDTree` indexes the full dataset. The app interpolates waypoints between your start and target moods, then picks nearby songs while penalising abrupt tempo jumps.
+3. **3D Mood Space**
+   All {len(df):,} tracks plotted across Valence × Energy × Danceability. Drag to rotate, scroll to zoom.
+4. **Visualization**
    The playlist is drawn as a visible path through mood space so the transition is easy to explain and demo.
 """
     )
@@ -525,7 +588,10 @@ Ordered journey playlist + path visualization""",
     )
 
     st.markdown("### Journey scoring")
-    st.code("transition_score = mood_distance + 0.30 * abs(tempo_norm_current - tempo_norm_previous)", language="python")
+    st.code(
+        "transition_score = mood_distance + 0.30 * abs(tempo_norm_current - tempo_norm_previous)",
+        language="python",
+    )
 
     st.markdown("### Why this is different")
     st.write(
@@ -534,10 +600,15 @@ Ordered journey playlist + path visualization""",
     )
 
 
+# ── entry point ────────────────────────────────────────────────────────────────
+
 def main() -> None:
     """Render the full MoodTune application."""
+    _inject_css()
     _init_state()
-    df = _load_clean_df()
+
+    with st.spinner("Loading dataset..."):
+        df = load_full_dataset()
 
     tabs = st.tabs(["Mood Space", "Journey", "Data Lab", "How It Works"])
     with tabs[0]:

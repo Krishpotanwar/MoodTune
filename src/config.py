@@ -16,6 +16,7 @@ LOG_PATH: Path = PROJECT_ROOT / "logs" / "validation_summary.txt"
 STYLE_PATH: Path = PROJECT_ROOT / "ui" / "styles.css"
 
 DEFAULT_SCATTER_SAMPLE: int = 5_000
+DEFAULT_3D_SAMPLE: int = 25_000
 DEFAULT_JOURNEY_STEPS: int = 18
 DEFAULT_JOURNEY_CANDIDATES: int = 15
 DEFAULT_TEMPO_WEIGHT: float = 0.30
