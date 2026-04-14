@@ -2,13 +2,27 @@
 
 > **MoodTune** transforms 81,000+ songs into an interactive 3D mood map, letting you journey from how you feel now to how you want to feel — with AI-curated playlists that bridge the emotional gap.
 
-**🌐 [Live Demo](https://moodtune-cayerjwf67tt46ppthmeei.streamlit.app)**
+**🌐 [Try it live → moodtune.streamlit.app](https://moodtune-cayerjwf67tt46ppthmeei.streamlit.app)**
+
+[![Live Demo](https://img.shields.io/badge/Live_Demo-Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://moodtune-cayerjwf67tt46ppthmeei.streamlit.app)
+[![Source](https://img.shields.io/badge/Source-GitHub-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Krishpotanwar/MoodTune)
+[![Dataset](https://img.shields.io/badge/Dataset-HuggingFace-yellow?style=for-the-badge&logo=huggingface&logoColor=white)](https://huggingface.co/datasets/maharshipandya/spotify-tracks-dataset)
 
 ---
 
-## What It Does
+## About
 
-Most music recommenders match **one static mood**. MoodTune treats music discovery like **path planning through emotional space** — you set a start mood and a target mood, and the app generates an 18-step playlist that transitions smoothly between them, visualized as a visible path through a scatter plot of real songs.
+MoodTune is a music discovery app that treats emotional navigation like **path planning through mood space**. Instead of recommending songs that match one static mood, it generates a **journey playlist** — a sequence of 18 tracks that smoothly transitions from where you are emotionally to where you want to be.
+
+The app maps every song into a 3D emotional coordinate (Valence × Energy × Danceability), then uses a **KDTree nearest-neighbour algorithm** to plot the optimal path between any two moods. The result is a visually explorable playlist where you can see the emotional arc unfold in real-time.
+
+**Built as a demo project** showcasing spatial search, NLP mood parsing, and interactive 3D visualization in a consumer-facing music app.
+
+### Quick Links
+
+- 🎵 **Live App**: https://moodtune-cayerjwf67tt46ppthmeei.streamlit.app
+- 💻 **Source Code**: https://github.com/Krishpotanwar/MoodTune
+- 📊 **Dataset**: https://huggingface.co/datasets/maharshipandya/spotify-tracks-dataset
 
 ---
 
@@ -140,4 +154,4 @@ MIT
 
 ---
 
-**Built for demo purposes** — showcases KDTree path planning, NLP mood parsing, and interactive 3D visualization in a consumer-facing music app.
+**Built as a demo project** — showcases KDTree path planning, NLP mood parsing, and interactive 3D visualization in a consumer-facing music app.
