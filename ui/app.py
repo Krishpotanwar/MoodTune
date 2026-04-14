@@ -7,31 +7,43 @@ Run from the project root:
 
 from __future__ import annotations
 
+import math
 import sys
+from collections.abc import Callable
+from html import escape
+from numbers import Real
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote_plus
 
 import pandas as pd
 import streamlit as st
+from scipy.spatial import KDTree
+from sklearn.neighbors import NearestNeighbors
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_PROJECT_ROOT))
 
-from src.config import (
+from src.config import (  # noqa: E402
     CLEAN_DATA_PATH,
+    DEFAULT_3D_SAMPLE,
     DEFAULT_JOURNEY_STEPS,
     DEFAULT_PLAYLIST_SIZE,
     LOG_PATH,
     RAW_DATA_PATH,
     STYLE_PATH,
 )
-from src.data_loader import load_full_dataset
-from src.journey import build_journey_tree, generate_mood_journey, journey_to_dataframe
-from src.mood_mapper import SURVEY_QUESTIONS, map_to_vector
-from src.nlp_mood import text_to_mood_vector
-from src.recommender import build_model, recommend
-from src.validator import get_cleaning_steps_log, run_pipeline
-from src.visualizer import (
+from src.data_loader import load_full_dataset  # noqa: E402
+from src.journey import (  # noqa: E402
+    build_journey_tree,
+    generate_mood_journey,
+    journey_to_dataframe,
+)
+from src.mood_mapper import SURVEY_QUESTIONS, map_to_vector  # noqa: E402
+from src.nlp_mood import text_to_mood_vector  # noqa: E402
+from src.recommender import build_model, recommend  # noqa: E402
+from src.validator import get_cleaning_steps_log, run_pipeline  # noqa: E402
+from src.visualizer import (  # noqa: E402
     feature_correlation_heatmap,
     journey_progress_figure,
     mood_space_3d_figure,
@@ -58,37 +70,185 @@ def _inject_css() -> None:
 # ── cached data ────────────────────────────────────────────────────────────────
 
 @st.cache_resource(show_spinner=False)
-def _get_recommender_model():
+def _get_recommender_model() -> NearestNeighbors:
     """Build the nearest-neighbour model once per dataset state."""
     return build_model(load_full_dataset())
 
 
 @st.cache_resource(show_spinner=False)
-def _get_journey_tree():
+def _get_journey_tree() -> KDTree:
     """Build the KDTree for the journey engine once per dataset state."""
     return build_journey_tree(load_full_dataset())
 
 
 # ── session state ──────────────────────────────────────────────────────────────
 
+_SELECTION_MODES: tuple[str, str] = ("Start mood", "Target mood")
+_STATE_REPAIR_NOTIFIED_KEY = "_state_repairs_notified"
+_STATE_DEFAULTS: dict[str, Any] = {
+    "journey_start": None,
+    "journey_target": None,
+    "journey_start_source": "Not set",
+    "journey_target_source": "Not set",
+    "selection_mode": "Start mood",
+    "journey_steps": DEFAULT_JOURNEY_STEPS,
+    "survey_step": 0,
+    "survey_answers": {},
+    "survey_result": None,
+    "nlp_start_result": None,
+    "nlp_target_result": None,
+    "show_full_3d": False,
+    _STATE_REPAIR_NOTIFIED_KEY: {},
+}
+
+
+def _default_value_for(key: str) -> Any:
+    """Return a safe default value for a state key, copying mutables."""
+    value = _STATE_DEFAULTS[key]
+    if isinstance(value, dict):
+        return dict(value)
+    return value
+
+
+def _state_set(key: str, value: Any) -> None:
+    """Set one session-state value through a single helper."""
+    st.session_state[key] = value
+
+
+def _warn_state_repair(key: str, expected: str, actual: Any) -> None:
+    """Warn once when an invalid session-state value is repaired."""
+    notified = st.session_state.get(_STATE_REPAIR_NOTIFIED_KEY, {})
+    if not isinstance(notified, dict):
+        notified = {}
+    if notified.get(key):
+        return
+    st.warning(
+        f"Recovered invalid session value for '{key}'. "
+        f"Expected {expected}, got {type(actual).__name__}. Reset to default."
+    )
+    notified[key] = True
+    st.session_state[_STATE_REPAIR_NOTIFIED_KEY] = notified
+
+
+def _restore_state_value(key: str, expected: str, is_valid: Callable[[Any], bool]) -> Any:
+    """Return validated state value, repairing invalid or missing data."""
+    default = _default_value_for(key)
+    if key not in st.session_state:
+        st.session_state[key] = default
+        return default
+
+    value = st.session_state[key]
+    if is_valid(value):
+        return value
+
+    _warn_state_repair(key, expected, value)
+    st.session_state[key] = default
+    return default
+
+
+def _is_finite_number(value: Any) -> bool:
+    """Check if a value is a finite real number."""
+    return isinstance(value, Real) and math.isfinite(float(value))
+
+
+def _is_coordinate(value: Any) -> bool:
+    """Check if a value is a coordinate-like pair."""
+    return (
+        isinstance(value, (tuple, list))
+        and len(value) == 2
+        and _is_finite_number(value[0])
+        and _is_finite_number(value[1])
+    )
+
+
+def _is_survey_answers(value: Any) -> bool:
+    """Check if survey answers are a safe dict[str, int in 1..4]."""
+    return isinstance(value, dict) and all(
+        isinstance(question, str)
+        and isinstance(answer, int)
+        and not isinstance(answer, bool)
+        and 1 <= answer <= 4
+        for question, answer in value.items()
+    )
+
+
+def _state_get_coordinate(key: str) -> tuple[float, float] | None:
+    """Return one coordinate from state, validating and normalising it."""
+    value = _restore_state_value(
+        key,
+        "None or (valence, energy) numeric coordinate",
+        lambda item: item is None or _is_coordinate(item),
+    )
+    if value is None:
+        return None
+    normalised = (round(float(value[0]), 4), round(float(value[1]), 4))
+    st.session_state[key] = normalised
+    return normalised
+
+
+def _state_get_source(key: str) -> str:
+    """Return one source-label string from state."""
+    return str(_restore_state_value(key, "string", lambda item: isinstance(item, str)))
+
+
+def _state_get_selection_mode() -> str:
+    """Return the validated current click-selection mode."""
+    return str(
+        _restore_state_value(
+            "selection_mode",
+            "'Start mood' or 'Target mood'",
+            lambda item: isinstance(item, str) and item in _SELECTION_MODES,
+        )
+    )
+
+
+def _state_get_journey_steps() -> int:
+    """Return a validated journey-step count."""
+    return int(
+        _restore_state_value(
+            "journey_steps",
+            "integer in [8, 24]",
+            lambda item: isinstance(item, int) and not isinstance(item, bool) and 8 <= item <= 24,
+        )
+    )
+
+
+def _state_get_survey_step() -> int:
+    """Return a validated survey step index."""
+    return int(
+        _restore_state_value(
+            "survey_step",
+            "non-negative integer",
+            lambda item: isinstance(item, int) and not isinstance(item, bool) and item >= 0,
+        )
+    )
+
+
+def _state_get_survey_answers() -> dict[str, int]:
+    """Return validated survey answers."""
+    value = _restore_state_value("survey_answers", "dict[str, int from 1 to 4]", _is_survey_answers)
+    return dict(value)
+
+
+def _state_get_optional_dict(key: str) -> dict[str, Any] | None:
+    """Return a state payload that is either None or a dictionary."""
+    value = _restore_state_value(key, "None or dict", lambda item: item is None or isinstance(item, dict))
+    if value is None:
+        return None
+    return dict(value)
+
+
+def _state_get_show_full_3d() -> bool:
+    """Return whether 3D chart should render all points."""
+    value = _restore_state_value("show_full_3d", "boolean", lambda item: isinstance(item, bool))
+    return bool(value)
+
+
 def _init_state() -> None:
     """Create every session_state key used by the app."""
-    defaults: dict[str, Any] = {
-        "journey_start": None,
-        "journey_target": None,
-        "journey_start_source": "Not set",
-        "journey_target_source": "Not set",
-        "selection_mode": "Start mood",
-        "journey_steps": DEFAULT_JOURNEY_STEPS,
-        "survey_step": 0,
-        "survey_answers": {},
-        "survey_result": None,
-        "nlp_start_result": None,
-        "nlp_target_result": None,
-    }
-    for key, value in defaults.items():
+    for key in _STATE_DEFAULTS:
         if key not in st.session_state:
-            st.session_state[key] = value
+            st.session_state[key] = _default_value_for(key)
 
 
 # ── coordinate helpers ─────────────────────────────────────────────────────────
@@ -96,21 +256,21 @@ def _init_state() -> None:
 def _set_coordinate(key: str, coord: tuple[float, float], source: str) -> None:
     """Store one mood coordinate in session state with a readable source tag."""
     x_val, y_val = round(float(coord[0]), 4), round(float(coord[1]), 4)
-    st.session_state[key] = (x_val, y_val)
-    st.session_state[f"{key}_source"] = source
+    _state_set(key, (x_val, y_val))
+    _state_set(f"{key}_source", source)
 
 
 def _clear_coordinate(key: str) -> None:
     """Clear one stored mood coordinate and reset its source label."""
-    st.session_state[key] = None
-    st.session_state[f"{key}_source"] = "Not set"
+    _state_set(key, None)
+    _state_set(f"{key}_source", "Not set")
 
 
 def _reset_survey() -> None:
     """Clear the survey flow back to its initial state."""
-    st.session_state["survey_step"] = 0
-    st.session_state["survey_answers"] = {}
-    st.session_state["survey_result"] = None
+    _state_set("survey_step", 0)
+    _state_set("survey_answers", {})
+    _state_set("survey_result", None)
 
 
 def _quadrant_label(coord: tuple[float, float] | None) -> str:
@@ -164,7 +324,7 @@ def _apply_chart_selection(chart_event: Any) -> None:
     if not selected:
         return
     latest = selected[-1]
-    if st.session_state["selection_mode"] == "Start mood":
+    if _state_get_selection_mode() == "Start mood":
         _set_coordinate("journey_start", latest, "Mood Space")
         return
     _set_coordinate("journey_target", latest, "Mood Space")
@@ -174,8 +334,10 @@ def _apply_chart_selection(chart_event: Any) -> None:
 
 def _render_selection_summary() -> None:
     """Show the currently active mood coordinates and their source."""
-    start = st.session_state["journey_start"]
-    target = st.session_state["journey_target"]
+    start = _state_get_coordinate("journey_start")
+    target = _state_get_coordinate("journey_target")
+    start_source = _state_get_source("journey_start_source")
+    target_source = _state_get_source("journey_target_source")
     col_start, col_target, col_actions = st.columns([1.2, 1.2, 0.8])
 
     with col_start:
@@ -185,7 +347,7 @@ def _render_selection_summary() -> None:
             st.success(
                 f"Start mood: **{_quadrant_label(start)}**\n\n"
                 f"Valence `{start[0]:.2f}` · Energy `{start[1]:.2f}`\n\n"
-                f"Source: {st.session_state['journey_start_source']}"
+                f"Source: {start_source}"
             )
 
     with col_target:
@@ -195,7 +357,7 @@ def _render_selection_summary() -> None:
             st.success(
                 f"Target mood: **{_quadrant_label(target)}**\n\n"
                 f"Valence `{target[0]:.2f}` · Energy `{target[1]:.2f}`\n\n"
-                f"Source: {st.session_state['journey_target_source']}"
+                f"Source: {target_source}"
             )
 
     with col_actions:
@@ -205,10 +367,10 @@ def _render_selection_summary() -> None:
             key="selection_mode",
             horizontal=False,
         )
-        if st.button("Clear start", width="stretch"):
+        if st.button("Clear start", use_container_width=True):
             _clear_coordinate("journey_start")
             st.rerun()
-        if st.button("Clear target", width="stretch"):
+        if st.button("Clear target", use_container_width=True):
             _clear_coordinate("journey_target")
             st.rerun()
 
@@ -226,16 +388,22 @@ def _render_text_mapper() -> None:
             placeholder="I just finished a long exam and want to zone out",
             label_visibility="collapsed",
         )
-        if st.button("Map text to start mood", key="nlp_start_button", width="stretch"):
+        if st.button("Map text to start mood", key="nlp_start_button", use_container_width=True):
             result = text_to_mood_vector(start_text)
-            st.session_state["nlp_start_result"] = result
+            _state_set("nlp_start_result", result)
             _set_coordinate("journey_start", result["coordinate"], "NLP")
 
-        result = st.session_state.get("nlp_start_result")
+        result = _state_get_optional_dict("nlp_start_result")
         if result:
+            matched_words = result.get("matched_words", [])
+            if not isinstance(matched_words, list):
+                matched_words = []
+            confidence = result.get("confidence", 0.0)
+            if not _is_finite_number(confidence):
+                confidence = 0.0
             st.caption(
-                f"Matched: {', '.join(result['matched_words']) or 'none'} | "
-                f"confidence {result['confidence']:.2f}"
+                f"Matched: {', '.join(str(word) for word in matched_words) or 'none'} | "
+                f"confidence {float(confidence):.2f}"
             )
 
     with right:
@@ -247,16 +415,22 @@ def _render_text_mapper() -> None:
             placeholder="Take me from drained to bright and energized",
             label_visibility="collapsed",
         )
-        if st.button("Map text to target mood", key="nlp_target_button", width="stretch"):
+        if st.button("Map text to target mood", key="nlp_target_button", use_container_width=True):
             result = text_to_mood_vector(target_text)
-            st.session_state["nlp_target_result"] = result
+            _state_set("nlp_target_result", result)
             _set_coordinate("journey_target", result["coordinate"], "NLP")
 
-        result = st.session_state.get("nlp_target_result")
+        result = _state_get_optional_dict("nlp_target_result")
         if result:
+            matched_words = result.get("matched_words", [])
+            if not isinstance(matched_words, list):
+                matched_words = []
+            confidence = result.get("confidence", 0.0)
+            if not _is_finite_number(confidence):
+                confidence = 0.0
             st.caption(
-                f"Matched: {', '.join(result['matched_words']) or 'none'} | "
-                f"confidence {result['confidence']:.2f}"
+                f"Matched: {', '.join(str(word) for word in matched_words) or 'none'} | "
+                f"confidence {float(confidence):.2f}"
             )
 
 
@@ -264,7 +438,8 @@ def _render_survey_question(step: int) -> None:
     """Render one survey question with back/next navigation."""
     question = SURVEY_QUESTIONS[step - 1]
     labels = [option["label"] for option in question["options"]]
-    previous = st.session_state["survey_answers"].get(question["id"])
+    answers = _state_get_survey_answers()
+    previous = answers.get(question["id"])
     default_index = previous - 1 if previous else 0
 
     st.progress(step / 4, text=f"Survey step {step} of 4")
@@ -277,21 +452,27 @@ def _render_survey_question(step: int) -> None:
 
     col_back, _, col_next = st.columns([1, 1, 1])
     with col_back:
-        if step > 1 and st.button("Back", key=f"survey_back_{step}", width="stretch"):
-            st.session_state["survey_step"] -= 1
+        if step > 1 and st.button("Back", key=f"survey_back_{step}", use_container_width=True):
+            _state_set("survey_step", max(0, _state_get_survey_step() - 1))
             st.rerun()
     with col_next:
-        if st.button("Next", key=f"survey_next_{step}", width="stretch", type="primary"):
-            st.session_state["survey_answers"][question["id"]] = labels.index(selected) + 1
-            st.session_state["survey_step"] += 1
+        if st.button("Next", key=f"survey_next_{step}", use_container_width=True, type="primary"):
+            answers = _state_get_survey_answers()
+            answers[question["id"]] = labels.index(selected) + 1
+            _state_set("survey_answers", answers)
+            _state_set("survey_step", _state_get_survey_step() + 1)
             st.rerun()
 
 
 def _render_survey_result(df: pd.DataFrame) -> None:
     """Render the classic survey outcome and optional instant recommendations."""
-    answers = st.session_state["survey_answers"]
+    answers = _state_get_survey_answers()
+    missing = [question_id for question_id in ("q1", "q2", "q3", "q4") if question_id not in answers]
+    if missing:
+        st.warning(f"Survey answers are incomplete: missing {', '.join(missing)}. Please complete all steps.")
+        return
     result = map_to_vector(answers["q1"], answers["q2"], answers["q3"], answers["q4"])
-    st.session_state["survey_result"] = result
+    _state_set("survey_result", result)
 
     st.success(
         f"{result['mood_emoji']} Survey mood: **{result['mood_label']}** | "
@@ -299,13 +480,13 @@ def _render_survey_result(df: pd.DataFrame) -> None:
     )
     col_start, col_target, col_reset = st.columns(3)
     with col_start:
-        if st.button("Use survey as start mood", width="stretch"):
+        if st.button("Use survey as start mood", use_container_width=True):
             _set_coordinate("journey_start", result["coordinate"], "Survey")
     with col_target:
-        if st.button("Use survey as target mood", width="stretch"):
+        if st.button("Use survey as target mood", use_container_width=True):
             _set_coordinate("journey_target", result["coordinate"], "Survey")
     with col_reset:
-        if st.button("Reset survey", width="stretch"):
+        if st.button("Reset survey", use_container_width=True):
             _reset_survey()
             st.rerun()
 
@@ -315,22 +496,23 @@ def _render_survey_result(df: pd.DataFrame) -> None:
     st.dataframe(
         instant[["track_name", "artist_name", "genre", "similarity_pct"]],
         hide_index=True,
-        width="stretch",
+        use_container_width=True,
     )
 
 
 def _render_survey_fallback(df: pd.DataFrame) -> None:
     """Render the guided survey flow inside an expander."""
-    with st.expander("Classic survey fallback", expanded=st.session_state["survey_step"] > 0):
-        if st.session_state["survey_step"] == 0:
+    survey_step = _state_get_survey_step()
+    with st.expander("Classic survey fallback", expanded=survey_step > 0):
+        if survey_step == 0:
             st.write("Prefer a guided flow? The original four-question survey still works.")
             if st.button("Start survey", type="primary"):
-                st.session_state["survey_step"] = 1
+                _state_set("survey_step", 1)
                 st.rerun()
             return
 
-        if 1 <= st.session_state["survey_step"] <= 4:
-            _render_survey_question(st.session_state["survey_step"])
+        if 1 <= survey_step <= 4:
+            _render_survey_question(survey_step)
             return
 
         _render_survey_result(df)
@@ -340,8 +522,8 @@ def _render_survey_fallback(df: pd.DataFrame) -> None:
 
 def _build_journey_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     """Generate the current mood journey as a dataframe."""
-    start = st.session_state["journey_start"]
-    target = st.session_state["journey_target"]
+    start = _state_get_coordinate("journey_start")
+    target = _state_get_coordinate("journey_target")
     if start is None or target is None:
         return pd.DataFrame()
     journey = generate_mood_journey(
@@ -349,15 +531,41 @@ def _build_journey_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         df,
         start=start,
         target=target,
-        n_steps=st.session_state["journey_steps"],
+        n_steps=_state_get_journey_steps(),
     )
     return journey_to_dataframe(journey)
 
 
 def _spotify_search_url(track_name: str, artist_name: str) -> str:
     """Build a Spotify web search URL for a track."""
-    query = f"{track_name} {artist_name}".replace(" ", "+")
+    query = quote_plus(f"{track_name} {artist_name}")
     return f"https://open.spotify.com/search/{query}"
+
+
+def _song_card_markup(
+    step_num: int,
+    track_name: str,
+    artist: str,
+    genre: str,
+    valence: float,
+    energy: float,
+) -> str:
+    """Build escaped song-card HTML so dataset text is never rendered as raw HTML."""
+    safe_track_name = escape(track_name, quote=True)
+    safe_artist = escape(artist, quote=True)
+    safe_genre = escape(genre, quote=True)
+    return f"""
+                    <div class="song-card">
+                        <div class="song-card-step">Step {step_num}</div>
+                        <div class="song-card-title">{safe_track_name}</div>
+                        <div class="song-card-artist">{safe_artist}</div>
+                        <div class="song-card-genre">{safe_genre}</div>
+                        <div class="song-card-badges">
+                            <span class="stat-badge">V {valence:.2f}</span>
+                            <span class="stat-badge">E {energy:.2f}</span>
+                        </div>
+                    </div>
+                    """
 
 
 def _render_song_cards(journey_df: pd.DataFrame) -> None:
@@ -365,7 +573,7 @@ def _render_song_cards(journey_df: pd.DataFrame) -> None:
     rows = [journey_df.iloc[i:i + 3] for i in range(0, len(journey_df), 3)]
     for row_df in rows:
         cols = st.columns(3)
-        for col, (_, track) in zip(cols, row_df.iterrows()):
+        for col, (_, track) in zip(cols, row_df.iterrows(), strict=False):
             step_num = int(track["waypoint_idx"]) + 1
             track_name = str(track.get("track_name", "Unknown"))
             artist = str(track.get("artist_name", ""))
@@ -374,22 +582,9 @@ def _render_song_cards(journey_df: pd.DataFrame) -> None:
             energy = float(track.get("energy", 0.0))
 
             with col:
-                st.html(
-                    f"""
-                    <div class="song-card">
-                        <div class="song-card-step">Step {step_num}</div>
-                        <div class="song-card-title">{track_name}</div>
-                        <div class="song-card-artist">{artist}</div>
-                        <div class="song-card-genre">{genre}</div>
-                        <div class="song-card-badges">
-                            <span class="stat-badge">V {valence:.2f}</span>
-                            <span class="stat-badge">E {energy:.2f}</span>
-                        </div>
-                    </div>
-                    """
-                )
+                st.html(_song_card_markup(step_num, track_name, artist, genre, valence, energy))
                 search_url = _spotify_search_url(track_name, artist)
-                st.link_button("Open Spotify", search_url, width="stretch")
+                st.link_button("Open Spotify", search_url, use_container_width=True)
 
 
 # ── tab renderers ──────────────────────────────────────────────────────────────
@@ -426,31 +621,55 @@ def _render_mood_space_tab(df: pd.DataFrame) -> None:
     )
     figure = mood_space_figure(
         df,
-        start_coord=st.session_state["journey_start"],
-        target_coord=st.session_state["journey_target"],
+        start_coord=_state_get_coordinate("journey_start"),
+        target_coord=_state_get_coordinate("journey_target"),
     )
     chart_event = st.plotly_chart(
         figure,
-        width="stretch",
+        use_container_width=True,
         key="mood_space_chart",
         on_select="rerun",
         selection_mode=("points",),
         config={"scrollZoom": False, "displaylogo": False},
     )
     _apply_chart_selection(chart_event)
+    st.caption(
+        "Chart description: this 2D chart maps each track by valence (x-axis) and energy (y-axis). "
+        "Start and target markers appear when selected."
+    )
 
     # 3D Mood Space
     with st.expander("3D Mood Space — rotate, zoom, explore", expanded=False):
+        preview_sample = min(DEFAULT_3D_SAMPLE, len(df))
+        showing_full_3d = _state_get_show_full_3d()
+        if len(df) > preview_sample and not showing_full_3d:
+            if st.button(f"Show more points ({len(df):,} total)", key="show_more_3d", use_container_width=True):
+                _state_set("show_full_3d", True)
+                st.rerun()
+        if len(df) > preview_sample and showing_full_3d:
+            if st.button(
+                f"Back to faster preview ({preview_sample:,} points)",
+                key="show_less_3d",
+                use_container_width=True,
+            ):
+                _state_set("show_full_3d", False)
+                st.rerun()
+        sample_size = len(df) if showing_full_3d else preview_sample
+
         st.caption(
             "Three axes: **Valence** (sad → happy) · **Energy** (chill → intense) · "
-            "**Danceability** (still → groove). Coloured by genre using the Plasma colorscale."
+            "**Danceability** (still → groove). Genre uses both colour and marker symbols."
         )
         with st.spinner("Building 3D mood space..."):
-            fig_3d = mood_space_3d_figure(df)
+            fig_3d = mood_space_3d_figure(df, sample_size=sample_size)
         st.plotly_chart(
             fig_3d,
-            width="stretch",
+            use_container_width=True,
             config={"displaylogo": False},
+        )
+        st.caption(
+            "Chart description: each point is a song in 3D mood space. "
+            "Colour and marker shape both encode genre groups for accessibility."
         )
 
     _render_survey_fallback(df)
@@ -460,7 +679,9 @@ def _render_journey_tab(df: pd.DataFrame) -> None:
     """Render the generated journey playlist and supporting charts."""
     st.markdown("## Journey Playlist")
 
-    if st.session_state["journey_start"] is None or st.session_state["journey_target"] is None:
+    start = _state_get_coordinate("journey_start")
+    target = _state_get_coordinate("journey_target")
+    if start is None or target is None:
         st.warning("Set both a start mood and a target mood in the Mood Space tab to generate a journey.")
         return
 
@@ -480,23 +701,29 @@ def _render_journey_tab(df: pd.DataFrame) -> None:
         return
 
     c1, c2, c3 = st.columns(3)
-    c1.metric("Start mood", _quadrant_label(st.session_state["journey_start"]))
-    c2.metric("Target mood", _quadrant_label(st.session_state["journey_target"]))
+    c1.metric("Start mood", _quadrant_label(start))
+    c2.metric("Target mood", _quadrant_label(target))
     c3.metric("Avg transition score", f"{journey_df['transition_score'].mean():.3f}")
 
     mood_fig = mood_space_figure(
         df,
-        start_coord=st.session_state["journey_start"],
-        target_coord=st.session_state["journey_target"],
+        start_coord=start,
+        target_coord=target,
         journey_df=journey_df,
     )
     st.plotly_chart(
         mood_fig,
-        width="stretch",
+        use_container_width=True,
         config={"scrollZoom": False, "displaylogo": False},
     )
+    st.caption(
+        "Chart description: this shows the generated path from start mood to target mood through selected tracks."
+    )
 
-    st.plotly_chart(journey_progress_figure(journey_df), width="stretch")
+    st.plotly_chart(journey_progress_figure(journey_df), use_container_width=True)
+    st.caption(
+        "Chart description: line chart of valence and energy progression at each playlist step."
+    )
 
     st.markdown("### Your journey")
     _render_song_cards(journey_df)
@@ -544,8 +771,8 @@ def _render_data_lab_tab() -> None:
 
         st.markdown("### Before vs after")
         left, right = st.columns(2)
-        left.dataframe(raw_df.head(5), width="stretch")
-        right.dataframe(clean_df.head(5), width="stretch")
+        left.dataframe(raw_df.head(5), use_container_width=True)
+        right.dataframe(clean_df.head(5), use_container_width=True)
 
         st.markdown("### Feature correlation snapshot")
         st.pyplot(feature_correlation_heatmap(clean_df))

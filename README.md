@@ -73,7 +73,7 @@ Drag to rotate, scroll to zoom. Tracks are colour-coded by genre using the Plasm
 | **Data Processing** | Pandas + NumPy + custom validator pipeline |
 | **ML/Algorithms** | SciPy KDTree, scikit-learn nearest-neighbour, NLP mood mapping |
 | **Dataset** | 81k Spotify tracks (14 audio features) via HuggingFace Hub |
-| **Visualization** | Plotly 2D scatter (5k sample) + 3D scatter (25k sample) |
+| **Visualization** | Plotly 2D scatter (5k sample) + 3D scatter (10k default sample) |
 | **Styling** | Custom CSS — baby pink dark theme with liquid glassmorphism |
 | **Deployment** | Streamlit Cloud (free tier) |
 
@@ -141,7 +141,7 @@ music based song suggester/
 
 - [x] Stats banner shows "81,000+ tracks" (not 200)
 - [x] 2D scatter shows 5,000 sample points, click sets start/target
-- [x] 3D scatter renders (rotate, zoom work), ~25k points, black bg
+- [x] 3D scatter renders (rotate, zoom work), ~10k default points with optional full detail, black bg
 - [x] Journey generates 18 tracks, displays as card grid
 - [x] NLP text input maps to coordinates correctly
 - [x] No import errors, no missing data warnings

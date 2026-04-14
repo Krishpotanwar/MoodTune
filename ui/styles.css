@@ -1008,3 +1008,132 @@ header[data-testid="stHeader"] {
   flex-wrap: wrap;
   margin-bottom: 12px;
 }
+
+/* ── Responsive breakpoints ───────────────────────────────────── */
+@media (max-width: 768px) {
+  .block-container {
+    padding-top: 0.9rem !important;
+    padding-left: 0.8rem !important;
+    padding-right: 0.8rem !important;
+  }
+
+  .hero h1 {
+    font-size: 2.3rem !important;
+  }
+
+  .hero-subtitle {
+    font-size: 1rem !important;
+  }
+
+  .playlist-header,
+  .playlist-row {
+    grid-template-columns: 28px 40px 1.8fr 0.8fr 0.6fr 52px;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+
+  .playlist-header .ph-album,
+  .playlist-row .pr-album {
+    display: none;
+  }
+
+  .funnel-label {
+    width: 120px;
+  }
+
+  .dataset-stats {
+    gap: 10px;
+  }
+
+  .ds-stat {
+    min-width: 110px;
+  }
+
+  .song-card {
+    min-height: 110px;
+    padding: 12px 12px;
+  }
+
+  .song-card-title {
+    font-size: 0.88rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .block-container {
+    padding-top: 0.7rem !important;
+    padding-left: 0.6rem !important;
+    padding-right: 0.6rem !important;
+  }
+
+  .hero {
+    padding: 2.5rem 0.4rem 1.6rem;
+  }
+
+  .hero h1 {
+    font-size: 1.85rem !important;
+  }
+
+  .app-header {
+    padding: 0.85rem 1rem;
+  }
+
+  .app-header h2 {
+    font-size: 1.2rem !important;
+  }
+
+  .playlist-header {
+    display: none;
+  }
+
+  .playlist-row {
+    grid-template-columns: 28px 36px 1fr;
+    gap: 8px;
+    padding: 8px 8px;
+    align-items: start;
+  }
+
+  .pr-title-block {
+    grid-column: 3 / 4;
+  }
+
+  .pr-genre,
+  .pr-match,
+  .pr-features {
+    display: none;
+  }
+
+  .dataset-card {
+    padding: 0.9rem 0.9rem;
+  }
+
+  .dataset-stats {
+    flex-direction: column;
+  }
+
+  .ds-stat {
+    min-width: 100%;
+  }
+
+  .pipeline-flow {
+    justify-content: flex-start;
+  }
+
+  .funnel-row {
+    gap: 6px;
+  }
+
+  .funnel-label {
+    width: 92px;
+    font-size: 0.68rem;
+  }
+
+  .song-card-badges {
+    gap: 4px;
+  }
+
+  .stat-badge {
+    font-size: 0.66rem;
+    padding: 2px 8px;
+  }
+}

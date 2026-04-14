@@ -16,8 +16,14 @@ if __package__ in (None, ""):
 
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.config import CLEAN_DATA_PATH, DEFAULT_JOURNEY_CANDIDATES, DEFAULT_JOURNEY_STEPS
-from src.config import DEFAULT_TEMPO_WEIGHT, SAMPLE_DATA_PATH
+from src.config import (
+    CLEAN_DATA_PATH,
+    DEFAULT_JOURNEY_CANDIDATES,
+    DEFAULT_JOURNEY_STEPS,
+    DEFAULT_TEMPO_WEIGHT,
+    MAX_TEMPO_BPM,
+    SAMPLE_DATA_PATH,
+)
 
 MOOD_FEATURES: list[str] = ["valence", "energy"]
 _TRACK_COLUMNS: list[str] = [
@@ -76,7 +82,7 @@ def _tempo_norm_for_row(row: pd.Series) -> float:
     if pd.notna(row.get("tempo_norm")):
         return float(row["tempo_norm"])
     tempo = float(row.get("tempo", 125.0))
-    return float(np.clip(tempo / 250.0, 0.0, 1.0))
+    return float(np.clip(tempo / MAX_TEMPO_BPM, 0.0, 1.0))
 
 
 def _score_candidate(
@@ -175,7 +181,7 @@ def generate_mood_journey(
         best_distance = 0.0
         best_score = float("inf")
 
-        for mood_distance, candidate_idx in zip(distances, indices):
+        for mood_distance, candidate_idx in zip(distances, indices, strict=False):
             if int(candidate_idx) in used_indices:
                 continue
             row = df.iloc[int(candidate_idx)]

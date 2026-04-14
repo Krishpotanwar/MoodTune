@@ -17,13 +17,20 @@ from typing import Any
 
 import pandas as pd
 
+if __package__ in (None, ""):
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from src.config import MAX_TEMPO_BPM
+
 # ── constants ──────────────────────────────────────────────────────────────────
 
 FEATURE_RANGES: dict[str, tuple[float, float]] = {
     "energy":       (0.0, 1.0),
     "valence":      (0.0, 1.0),
     "acousticness": (0.0, 1.0),
-    "tempo":        (0.0, 250.0),
+    "tempo":        (0.0, MAX_TEMPO_BPM),
 }
 
 REQUIRED_COLUMNS: list[str] = [

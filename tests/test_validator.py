@@ -6,8 +6,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from src.config import MAX_TEMPO_BPM
 from src.validator import get_cleaning_steps_log, run_pipeline
-
 
 # ── fixtures ───────────────────────────────────────────────────────────────────
 
@@ -116,7 +116,7 @@ def test_energy_below_0_is_clipped(tmp_path: Path) -> None:
 def test_tempo_above_250_is_clipped(tmp_path: Path) -> None:
     raw = _make_csv(tmp_path, tempo=[300.0, 90.0, 60.0])
     result = run_pipeline(raw, tmp_path / "out.csv", tmp_path / "log.txt")
-    assert result["tempo"].max() <= 250.0
+    assert result["tempo"].max() <= MAX_TEMPO_BPM
 
 
 def test_tempo_below_0_is_clipped(tmp_path: Path) -> None:

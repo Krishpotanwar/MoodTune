@@ -117,7 +117,31 @@ def load_mood_lexicon(lexicon_path: Path | None = None) -> dict[str, tuple[float
     if not Path(source).exists():
         return dict(_DEFAULT_LEXICON)
     loaded = json.loads(Path(source).read_text(encoding="utf-8"))
-    return {str(term): (float(coords[0]), float(coords[1])) for term, coords in loaded.items()}
+    if not isinstance(loaded, dict):
+        raise ValueError("Custom mood lexicon must be a JSON object mapping term -> [valence, energy].")
+
+    validated: dict[str, tuple[float, float]] = {}
+    for term, coords in loaded.items():
+        if not isinstance(term, str):
+            raise ValueError("Custom mood lexicon keys must be strings.")
+        if not isinstance(coords, list) or len(coords) != 2:
+            raise ValueError(
+                f"Custom mood lexicon entry '{term}' must be a list of two numbers: [valence, energy]."
+            )
+        try:
+            valence = float(coords[0])
+            energy = float(coords[1])
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"Custom mood lexicon entry '{term}' contains non-numeric coordinates."
+            ) from exc
+        if not (0.0 <= valence <= 1.0 and 0.0 <= energy <= 1.0):
+            raise ValueError(
+                f"Custom mood lexicon entry '{term}' must stay within [0.0, 1.0] for both coordinates."
+            )
+        validated[term] = (valence, energy)
+
+    return validated
 
 
 def _term_pattern(term: str) -> str:

@@ -10,8 +10,8 @@ Priority order:
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import pandas as pd
 import streamlit as st
@@ -20,7 +20,13 @@ if __package__ in (None, ""):
     import sys
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.config import CLEAN_DATA_PATH, RAW_DATA_PATH, SAMPLE_DATA_PATH
+from src.config import (
+    CLEAN_DATA_PATH,
+    HF_DATASET_SHA256_ALLOWLIST,
+    MAX_TEMPO_BPM,
+    RAW_DATA_PATH,
+    SAMPLE_DATA_PATH,
+)
 
 # ── HuggingFace dataset details ────────────────────────────────────────────────
 
@@ -57,7 +63,7 @@ def _normalise_hf_df(df: pd.DataFrame) -> pd.DataFrame:
     # Normalise tempo to [0,1] if it's in BPM range (typical: 0–250)
     if "tempo" in df.columns and df["tempo"].max() > 1.5:
         df = df.copy()
-        df["tempo_norm"] = df["tempo"].clip(0, 250) / 250.0
+        df["tempo_norm"] = df["tempo"].clip(0, MAX_TEMPO_BPM) / MAX_TEMPO_BPM
     elif "tempo_norm" not in df.columns and "tempo" in df.columns:
         df = df.copy()
         df["tempo_norm"] = df["tempo"]
@@ -74,6 +80,15 @@ def _validate_schema(df: pd.DataFrame, source: str) -> None:
     missing = [c for c in _REQUIRED_COLS if c not in df.columns]
     if missing:
         raise ValueError(f"[data_loader] {source}: missing columns {missing}")
+
+
+def _sha256_file(path: str | Path) -> str:
+    """Compute the SHA-256 digest for a local file path."""
+    hasher = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            hasher.update(chunk)
+    return hasher.hexdigest()
 
 
 # ── main loader ────────────────────────────────────────────────────────────────
@@ -123,6 +138,13 @@ def load_full_dataset() -> pd.DataFrame:
                 filename=_HF_FILENAME,
                 repo_type="dataset",
             )
+            digest = _sha256_file(local_path)
+            if digest not in HF_DATASET_SHA256_ALLOWLIST:
+                st.warning(
+                    "HuggingFace dataset checksum mismatch. "
+                    f"Expected one of {len(HF_DATASET_SHA256_ALLOWLIST)} known hashes, got {digest}. "
+                    "Continuing per warn-only policy."
+                )
             df = pd.read_csv(local_path)
             df = _normalise_hf_df(df)
             _validate_schema(df, "HuggingFace Hub")

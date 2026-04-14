@@ -10,6 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")   # non-interactive backend required for Streamlit
 import matplotlib.pyplot as plt
 import numpy as np
@@ -34,10 +35,20 @@ _CORAL    = "#ff6b6b"
 _MINT     = "#7ae7c7"
 _GOLD     = "#f7b538"
 _PINK     = "#ff6b8a"   # baby pink primary
-_LAVENDER = "#c084fc"   # lavender secondary
 
 _FEATURE_LABELS: list[str] = ["Energy", "Valence", "Tempo", "Acousticness"]
 _FEATURE_KEYS:   list[str] = ["energy", "valence", "tempo_norm", "acousticness"]
+
+_GENRE_SYMBOLS: tuple[str, ...] = (
+    "circle",
+    "circle-open",
+    "square",
+    "square-open",
+    "diamond",
+    "diamond-open",
+    "cross",
+    "x",
+)
 
 _QUADRANT_COLORS: dict[str, str] = {
     "Joyful":    "#f59e0b",
@@ -455,7 +466,7 @@ def mood_space_3d_figure(
     """
     Interactive 3D scatter of the full dataset in (Valence × Energy × Danceability) space.
 
-    Up to `sample_size` tracks are rendered (default 25,000).  Rotatable,
+    Up to `sample_size` tracks are rendered (default 10,000). Rotatable,
     zoomable, and pannable via Plotly's built-in 3D WebGL renderer.
 
     Args:
@@ -467,20 +478,14 @@ def mood_space_3d_figure(
     """
     sample = df.sample(n=min(sample_size, len(df)), random_state=42).copy()
 
-    # Encode genre as a numeric index for Plasma colorscale
+    # Encode genre by both color and marker symbol for accessibility.
     genres = sample["genre"].astype(str)
-    unique_genres = genres.unique()
-    genre_to_idx = {g: i for i, g in enumerate(sorted(unique_genres))}
+    unique_genres = sorted(genres.unique())
+    genre_to_idx = {g: i for i, g in enumerate(unique_genres)}
     color_vals = genres.map(genre_to_idx).values
     n_genres = max(1, len(unique_genres))
-
-    hover = (
-        sample["track_name"].astype(str)
-        + "<br>"
-        + sample["artist_name"].astype(str)
-        + "<br>"
-        + genres
-    )
+    symbol_lookup = {genre: _GENRE_SYMBOLS[idx % len(_GENRE_SYMBOLS)] for idx, genre in enumerate(unique_genres)}
+    marker_symbols = genres.map(symbol_lookup).to_numpy()
 
     fig = go.Figure(
         data=[
@@ -493,6 +498,7 @@ def mood_space_3d_figure(
                     size=2,
                     opacity=0.65,
                     color=color_vals,
+                    symbol=marker_symbols,
                     colorscale="Plasma",
                     cmin=0,
                     cmax=n_genres - 1,
@@ -502,9 +508,9 @@ def mood_space_3d_figure(
                         len=0.6,
                         tickvals=[0, n_genres // 2, n_genres - 1],
                         ticktext=[
-                            sorted(unique_genres)[0],
-                            sorted(unique_genres)[n_genres // 2],
-                            sorted(unique_genres)[-1],
+                            unique_genres[0],
+                            unique_genres[n_genres // 2],
+                            unique_genres[-1],
                         ],
                         tickfont=dict(color=_PINK, size=9),
                         title_font=dict(color=_PINK, size=10),
@@ -512,7 +518,7 @@ def mood_space_3d_figure(
                 ),
                 customdata=np.stack(
                     [sample["track_name"], sample["artist_name"], genres,
-                     sample["valence"], sample["energy"], sample["danceability"]],
+                     sample["valence"], sample["energy"], sample["danceability"], marker_symbols],
                     axis=1,
                 ),
                 hovertemplate=(
@@ -521,7 +527,8 @@ def mood_space_3d_figure(
                     "%{customdata[2]}<br>"
                     "V:%{customdata[3]:.2f}  "
                     "E:%{customdata[4]:.2f}  "
-                    "D:%{customdata[5]:.2f}"
+                    "D:%{customdata[5]:.2f}<br>"
+                    "Marker:%{customdata[6]}"
                     "<extra></extra>"
                 ),
             )
@@ -560,7 +567,21 @@ def mood_space_3d_figure(
                 font=dict(color="rgba(255, 107, 138, 0.55)", size=10),
                 align="center",
             )
-        ],
+        ]
+    )
+
+    legend_entries = [f"{genre} = {symbol_lookup[genre]}" for genre in unique_genres[:6]]
+    if len(unique_genres) > 6:
+        legend_entries.append(f"+{len(unique_genres) - 6} more genres")
+    fig.add_annotation(
+        text="Genre marker legend: " + " • ".join(legend_entries),
+        xref="paper",
+        yref="paper",
+        x=0.5,
+        y=0.05,
+        showarrow=False,
+        font=dict(color="rgba(255, 107, 138, 0.70)", size=10),
+        align="center",
     )
     return fig
 

@@ -1,0 +1,25 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+exclude = [".venv", "data", ".pytest_cache", "__pycache__"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+warn_unused_ignores = true
+check_untyped_defs = true
+exclude = [
+  "^data/",
+]
+
+[[tool.mypy.overrides]]
+module = ["ui.app"]
+disable_error_code = ["attr-defined", "call-arg", "call-overload", "assignment"]
+
+[[tool.mypy.overrides]]
+module = ["src.visualizer"]
+disable_error_code = ["union-attr"]
