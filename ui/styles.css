@@ -450,26 +450,29 @@ hr {
   margin: 1.5rem 0 !important;
 }
 
-/* ── Headings ──────────────────────────────────────────────── */
-h1 {
+/* ── Headings — scoped to main content only ─────────────────── */
+.block-container h1,
+.block-container h2 {
   color: var(--pink-200) !important;
   font-weight: 800 !important;
   letter-spacing: -0.02em !important;
 }
-h2 {
+.block-container h2 {
   color: var(--pink-300) !important;
   font-weight: 700 !important;
 }
-h3 {
+.block-container h3 {
   color: var(--text-primary) !important;
   font-weight: 600 !important;
 }
-h4, h5, h6 {
+.block-container h4,
+.block-container h5,
+.block-container h6 {
   color: var(--text-secondary) !important;
 }
 
-/* ── General text & captions ───────────────────────────────── */
-p, span, li {
+/* ── General text — scoped to avoid Streamlit internals ─────── */
+.block-container p {
   color: var(--text-primary) !important;
 }
 .stCaption, [data-testid="stCaptionContainer"] {
