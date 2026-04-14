@@ -164,9 +164,88 @@ def _find_matches(text: str, lexicon: dict[str, tuple[float, float]]) -> list[Le
     return matches
 
 
+# ── HuggingFace emotion model (optional, with lexicon fallback) ───────────────
+
+# Maps j-hartmann/emotion-english-distilroberta-base labels → (valence, energy)
+_EMOTION_COORDS: dict[str, tuple[float, float]] = {
+    "joy":      (0.88, 0.75),
+    "surprise": (0.70, 0.80),
+    "neutral":  (0.50, 0.45),
+    "sadness":  (0.15, 0.18),
+    "disgust":  (0.20, 0.55),
+    "anger":    (0.15, 0.88),
+    "fear":     (0.22, 0.70),
+}
+
+_hf_pipeline: object | None = None
+_hf_available: bool | None = None  # None = not tried, True/False = tried
+
+
+def _load_emotion_pipeline() -> object | None:
+    """Load the HF emotion pipeline once and cache in module-level variable."""
+    global _hf_pipeline, _hf_available
+    if _hf_available is not None:
+        return _hf_pipeline  # already attempted
+    try:
+        from transformers import pipeline  # type: ignore
+
+        _hf_pipeline = pipeline(
+            "text-classification",
+            model="j-hartmann/emotion-english-distilroberta-base",
+            top_k=None,
+        )
+        _hf_available = True
+    except Exception:
+        _hf_pipeline = None
+        _hf_available = False
+    return _hf_pipeline
+
+
+def _hf_text_to_mood(text: str) -> MoodTextResult:
+    """Map text to mood using the HF distilroberta emotion model.
+
+    Raises RuntimeError if the model is unavailable or inference fails.
+    Caller should catch and fall through to lexicon.
+    """
+    model = _load_emotion_pipeline()
+    if model is None:
+        raise RuntimeError("HF emotion model not available")
+
+    results = model(text)[0]  # list of {label, score}
+    valence = energy = total = 0.0
+    for r in results:
+        label = r["label"].lower()
+        coord = _EMOTION_COORDS.get(label, (0.5, 0.5))
+        valence += coord[0] * r["score"]
+        energy += coord[1] * r["score"]
+        total += r["score"]
+
+    if total == 0:
+        raise RuntimeError("Empty scores from HF model")
+
+    avg_valence = round(float(np.clip(valence / total, 0.0, 1.0)), 3)
+    avg_energy = round(float(np.clip(energy / total, 0.0, 1.0)), 3)
+    top_emotion = max(results, key=lambda x: x["score"])["label"].lower()
+    confidence = round(float(max(r["score"] for r in results)), 3)
+
+    return {
+        "valence": avg_valence,
+        "energy": avg_energy,
+        "coordinate": (avg_valence, avg_energy),
+        "matched_words": [top_emotion],
+        "confidence": confidence,
+    }
+
+
+# ── Main entry point ──────────────────────────────────────────────────────────
+
+
 def text_to_mood_vector(text: str, lexicon_path: Path | None = None) -> MoodTextResult:
     """
     Convert a free-text mood description into a mood-space coordinate.
+
+    Tries the HuggingFace distilroberta emotion model first.
+    Falls back to lexicon-based matching if the model is unavailable.
 
     Args:
         text: User-entered mood description.
@@ -175,6 +254,12 @@ def text_to_mood_vector(text: str, lexicon_path: Path | None = None) -> MoodText
     Returns:
         Dict with valence, energy, coordinate, matched_words, and confidence.
     """
+    # Try HuggingFace model first
+    try:
+        return _hf_text_to_mood(text)
+    except Exception:
+        pass  # fall through to lexicon
+
     normalised_text = _normalise_text(text)
     lexicon = load_mood_lexicon(lexicon_path)
     matches = _find_matches(normalised_text, lexicon)

@@ -71,7 +71,7 @@ _AMBIENT_WORDS = (
     "dil",
     "beat",
     "vibe",
-    "safar",
+    "journey",
     "tempo",
     "mood",
     "lehra",
@@ -422,11 +422,11 @@ def _boot_scene_markup(points_json: str, total_tracks: int) -> str:
     width: 100%;
     height: 700px;
     background:
-      radial-gradient(circle at 20% 20%, rgba(255, 107, 138, 0.14), rgba(255, 107, 138, 0) 45%),
-      radial-gradient(circle at 80% 80%, rgba(192, 132, 252, 0.14), rgba(192, 132, 252, 0) 44%),
-      #05020b;
+      radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0) 45%),
+      radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0) 44%),
+      #080808;
     overflow: hidden;
-    color: #f8e8f0;
+    color: #f0f0f0;
   }
   #boot-scene-canvas {
     position: absolute;
@@ -437,7 +437,7 @@ def _boot_scene_markup(points_json: str, total_tracks: int) -> str:
   .boot-scene-vignette {
     position: absolute;
     inset: 0;
-    background: radial-gradient(circle, rgba(12, 6, 18, 0) 48%, rgba(10, 4, 16, 0.75) 100%);
+    background: radial-gradient(circle, rgba(8, 8, 8, 0) 48%, rgba(8, 8, 8, 0.80) 100%);
     pointer-events: none;
   }
   .boot-scene-center {
@@ -447,19 +447,19 @@ def _boot_scene_markup(points_json: str, total_tracks: int) -> str:
     transform: translate(-50%, -50%);
     width: min(680px, 88vw);
     text-align: center;
-    background: rgba(20, 10, 28, 0.58);
-    border: 1px solid rgba(255, 183, 206, 0.34);
+    background: rgba(26, 26, 26, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 24px;
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
     padding: clamp(1.2rem, 2vw, 2rem) clamp(1rem, 2vw, 2.4rem);
-    box-shadow: 0 18px 70px rgba(255, 107, 138, 0.22);
+    box-shadow: 0 18px 70px rgba(0, 0, 0, 0.7);
     z-index: 4;
   }
   .boot-scene-kicker {
     margin: 0 0 0.55rem;
     font-size: 0.72rem;
-    color: rgba(255, 183, 206, 0.72);
+    color: rgba(255, 255, 255, 0.45);
     text-transform: uppercase;
     letter-spacing: 0.22em;
     font-weight: 700;
@@ -469,19 +469,19 @@ def _boot_scene_markup(points_json: str, total_tracks: int) -> str:
     font-size: clamp(1.7rem, 4vw, 3rem);
     line-height: 1.1;
     font-weight: 800;
-    color: #ffe9f2;
-    text-shadow: 0 0 40px rgba(255, 107, 138, 0.35);
+    color: #f0f0f0;
+    text-shadow: 1px 1px 0 #555, 2px 2px 0 #333, 3px 3px 10px rgba(0,0,0,0.8);
   }
   .boot-scene-center p {
     margin: 0.85rem auto 0;
     max-width: 56ch;
-    color: #c4a0b5;
+    color: rgba(255, 255, 255, 0.55);
     font-size: clamp(0.88rem, 1.8vw, 1.02rem);
     line-height: 1.55;
   }
   .boot-scene-center code {
-    color: #ffb7ce;
-    background: rgba(255, 183, 206, 0.12);
+    color: rgba(255, 255, 255, 0.5);
+    background: rgba(255, 255, 255, 0.08);
     border-radius: 6px;
     padding: 0 6px;
   }
@@ -494,12 +494,12 @@ def _boot_scene_markup(points_json: str, total_tracks: int) -> str:
     padding: 0.75rem 1.8rem;
     border-radius: 999px;
     text-decoration: none;
-    color: #fff3f8;
+    color: #f0f0f0;
     font-weight: 700;
     letter-spacing: 0.03em;
-    border: 1px solid rgba(255, 183, 206, 0.5);
-    background: linear-gradient(180deg, rgba(255, 141, 161, 0.82), rgba(224, 80, 122, 0.9));
-    box-shadow: 0 6px 0 rgba(135, 34, 71, 0.7), 0 18px 45px rgba(255, 107, 138, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: linear-gradient(180deg, rgba(240, 240, 240, 0.90), rgba(180, 180, 180, 0.90));
+    box-shadow: 0 6px 0 rgba(0, 0, 0, 0.7), 0 18px 45px rgba(0, 0, 0, 0.5);
     transform: translateY(0);
     transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.2s ease;
   }
@@ -509,12 +509,12 @@ def _boot_scene_markup(points_json: str, total_tracks: int) -> str:
   }
   .boot-init-button:active {
     transform: translateY(3px);
-    box-shadow: 0 2px 0 rgba(135, 34, 71, 0.74), 0 10px 25px rgba(255, 107, 138, 0.28);
+    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.70), 0 10px 25px rgba(0, 0, 0, 0.40);
   }
   .boot-scene-meta {
     margin-top: 0.85rem !important;
     font-size: 0.76rem !important;
-    color: rgba(255, 183, 206, 0.7) !important;
+    color: rgba(255, 255, 255, 0.55) !important;
     letter-spacing: 0.05em;
   }
   @media (max-width: 768px) {
@@ -555,8 +555,8 @@ def _boot_scene_markup(points_json: str, total_tracks: int) -> str:
   <div class="boot-scene-vignette"></div>
   <div class="boot-scene-center">
     <p class="boot-scene-kicker">MoodTune Immersive System</p>
-    <h1>डेटा dekho, mood feel karo</h1>
-    <p>Scroll wheel se zoom karo, cube ke center <code>(0,0,0)</code> par lock-in karo.</p>
+    <h1>Explore the mood space</h1>
+    <p>Scroll to zoom · Rotate to explore · Click to lock in</p>
     <a class="boot-init-button" id="boot-init-button" href="?boot=1" target="_top" rel="noopener">
       Initialize System
     </a>
@@ -598,8 +598,8 @@ def _boot_scene_markup(points_json: str, total_tracks: int) -> str:
 
   let width = 0;
   let height = 0;
-  let cameraDistance = 2.55;
-  let cameraTarget = 2.55;
+  let cameraDistance = 1.0;
+  let cameraTarget = 1.0;
   let pointerX = 0;
   let pointerY = 0;
 
@@ -670,7 +670,7 @@ def _boot_scene_markup(points_json: str, total_tracks: int) -> str:
   const drawCube = (rx, ry) => {
     const verts = cubeVertices.map((v) => project(rotateVertex(v, rx, ry)));
     ctx.save();
-    ctx.strokeStyle = "rgba(255,183,206,0.48)";
+    ctx.strokeStyle = "rgba(255,255,255,0.35)";
     ctx.lineWidth = 1.1;
     for (const edge of cubeEdges) {
       const a = verts[edge[0]];
@@ -688,8 +688,8 @@ def _boot_scene_markup(points_json: str, total_tracks: int) -> str:
     const glow = 8 + Math.max(0, 80 / Math.max(20, center.scale));
     ctx.save();
     const grad = ctx.createRadialGradient(center.sx, center.sy, 0, center.sx, center.sy, glow);
-    grad.addColorStop(0, "rgba(255,180,220,0.85)");
-    grad.addColorStop(1, "rgba(255,180,220,0)");
+    grad.addColorStop(0, "rgba(255,255,255,0.80)");
+    grad.addColorStop(1, "rgba(255,255,255,0)");
     ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.arc(center.sx, center.sy, glow, 0, Math.PI * 2);
@@ -715,7 +715,7 @@ def _boot_scene_markup(points_json: str, total_tracks: int) -> str:
     for (const p of projected) {
       const size = Math.max(0.8, Math.min(3.3, p.scale * 0.018));
       ctx.beginPath();
-      ctx.fillStyle = "rgba(255, 183, 206, 0.55)";
+      ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
       ctx.arc(p.sx, p.sy, size, 0, Math.PI * 2);
       ctx.fill();
     }
@@ -771,8 +771,8 @@ def _render_immersive_boot_scene(df: pd.DataFrame) -> None:
     points_json = _boot_scene_points_json(df)
     components.html(_boot_scene_markup(points_json, len(df)), height=700, scrolling=False)
     st.caption(
-        "Center button scene ke andar visible hai. Agar iframe navigation restrict ho,"
-        " toh नीचे ka direct initialize button use karo."
+        "The Start button is inside the scene. If the iframe blocks navigation,"
+        " use the direct initialize button below."
     )
     left, center, right = st.columns([1.2, 1.0, 1.2])
     with center:
@@ -815,15 +815,15 @@ def _render_ambient_word_layer() -> None:
 
 
 def _render_initialized_header(df: pd.DataFrame) -> None:
-    """Render the redesigned Hindi-forward header after initialization."""
+    """Render the header stats banner after initialization."""
     n_genres = df["genre"].nunique() if "genre" in df.columns else 0
     st.html(
         f"""
         <section class="v2-hero">
             <p class="v2-kicker">Mood Navigation Engine</p>
-            <h1>MoodTune सिस्टम</h1>
+            <h1>MoodTune</h1>
             <p class="v2-subtitle">
-                Ab mood ko map karo, safar build karo, aur music ke through emotional shift ko live dekho.
+                Map your mood, build a journey, and watch your emotional shift unfold through music.
             </p>
             <div class="v2-pill-row">
                 <span class="v2-pill">🎵 {len(df):,} tracks</span>
@@ -1027,7 +1027,7 @@ def _render_survey_fallback(df: pd.DataFrame) -> None:
 # ── journey helpers ────────────────────────────────────────────────────────────
 
 def _build_journey_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    """Generate the current mood journey as a dataframe."""
+    """Generate the current mood journey as a dataframe, with Spotify enrichment."""
     start = _state_get_coordinate("journey_start")
     target = _state_get_coordinate("journey_target")
     if start is None or target is None:
@@ -1039,6 +1039,12 @@ def _build_journey_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         target=target,
         n_steps=_state_get_journey_steps(),
     )
+    # Optional Spotify enrichment — app works fine without it
+    try:
+        from src.spotify_client import enrich_journey  # noqa: PLC0415
+        journey = enrich_journey(journey)
+    except Exception:
+        pass
     return journey_to_dataframe(journey)
 
 
@@ -1055,21 +1061,40 @@ def _song_card_markup(
     genre: str,
     valence: float,
     energy: float,
+    album_art: str | None = None,
+    preview_url: str | None = None,
 ) -> str:
     """Build escaped song-card HTML so dataset text is never rendered as raw HTML."""
     safe_track_name = escape(track_name, quote=True)
     safe_artist = escape(artist, quote=True)
     safe_genre = escape(genre, quote=True)
+
+    art_html = (
+        f'<img class="song-card-art" src="{escape(album_art, quote=True)}" alt="album art" loading="lazy">'
+        if album_art
+        else '<div class="song-card-art" style="display:flex;align-items:center;justify-content:center;font-size:1.5rem;">🎵</div>'
+    )
+    preview_html = (
+        f'<div class="song-card-preview"><audio controls preload="none" src="{escape(preview_url, quote=True)}"></audio></div>'
+        if preview_url
+        else ""
+    )
     return f"""
-                    <div class="song-card">
-                        <div class="song-card-step">Step {step_num}</div>
-                        <div class="song-card-title">{safe_track_name}</div>
-                        <div class="song-card-artist">{safe_artist}</div>
-                        <div class="song-card-genre">{safe_genre}</div>
-                        <div class="song-card-badges">
+                    <div class="song-card glass-card">
+                        <div style="display:flex;gap:12px;align-items:flex-start;">
+                            {art_html}
+                            <div style="flex:1;min-width:0;">
+                                <div class="song-card-step">Step {step_num}</div>
+                                <div class="song-card-title">{safe_track_name}</div>
+                                <div class="song-card-artist">{safe_artist}</div>
+                                <div class="song-card-genre">{safe_genre}</div>
+                            </div>
+                        </div>
+                        <div class="song-card-badges" style="margin-top:10px;">
                             <span class="stat-badge">V {valence:.2f}</span>
                             <span class="stat-badge">E {energy:.2f}</span>
                         </div>
+                        {preview_html}
                     </div>
                     """
 
@@ -1088,9 +1113,15 @@ def _render_song_cards(journey_df: pd.DataFrame) -> None:
             energy = float(track.get("energy", 0.0))
 
             with col:
-                st.html(_song_card_markup(step_num, track_name, artist, genre, valence, energy))
-                search_url = _spotify_search_url(track_name, artist)
-                st.link_button("Open Spotify", search_url, use_container_width=True)
+                album_art = str(track.get("album_art", "")) or None
+                preview_url = str(track.get("preview_url", "")) or None
+                spotify_url = str(track.get("spotify_url", "")) or None
+                st.html(_song_card_markup(
+                    step_num, track_name, artist, genre, valence, energy,
+                    album_art=album_art, preview_url=preview_url,
+                ))
+                link_url = spotify_url or _spotify_search_url(track_name, artist)
+                st.link_button("Open Spotify", link_url, use_container_width=True)
 
 
 # ── tab renderers ──────────────────────────────────────────────────────────────
@@ -1110,20 +1141,20 @@ def _render_mood_space_tab(df: pd.DataFrame) -> None:
         """
     )
 
-    st.markdown("## Mood Space Studio | मूड मैप स्टूडियो")
+    st.markdown("## Mood Space Studio")
     st.caption(
-        "Start mood aur target mood set karo using song particles, text input, ya classic survey. "
-        f"{len(df):,} tracks exploration ke liye ready hain."
+        "Set your start and target mood using song particles, text input, or the survey. "
+        f"{len(df):,} tracks ready to explore."
     )
     _render_selection_summary()
 
-    st.markdown("### Text se mood map karo")
+    st.markdown("### Map your mood from text")
     _render_text_mapper()
 
     st.markdown("### Mood-space explorer")
     st.caption(
-        "Chart ke real song points select karo. "
-        "Radio control choose karega ki next click start mood set kare ya target mood."
+        "Select real song points from the chart. "
+        "The radio control determines whether the next click sets the start or target mood."
     )
     figure = mood_space_figure(
         df,
@@ -1140,8 +1171,8 @@ def _render_mood_space_tab(df: pd.DataFrame) -> None:
     )
     _apply_chart_selection(chart_event)
     st.caption(
-        "2D chart description: har track valence (x-axis) aur energy (y-axis) par mapped hai. "
-        "Start aur target markers selection ke baad dikhte hain."
+        "2D chart: each track is mapped by valence (x-axis) and energy (y-axis). "
+        "Start and target markers appear after selection."
     )
 
     # 3D Mood Space
@@ -1168,7 +1199,7 @@ def _render_mood_space_tab(df: pd.DataFrame) -> None:
 
         st.caption(
             "Three axes: **Valence** (sad → happy) · **Energy** (chill → intense) · "
-            "**Danceability** (still → groove). Genre dono: colour + marker symbols use karta hai."
+            "**Danceability** (still → groove). Genre encoded by both colour and marker shape."
         )
         with st.spinner("Building 3D mood space..."):
             fig_3d = mood_space_3d_figure(df, sample_size=sample_size)
@@ -1178,8 +1209,8 @@ def _render_mood_space_tab(df: pd.DataFrame) -> None:
             config={"displaylogo": False},
         )
         st.caption(
-            "3D chart description: har point ek song hai. "
-            "Colour aur marker shape dono genre groups encode karte hain for accessibility."
+            "3D chart: each point is a song. "
+            "Colour and marker shape both encode genre for accessibility."
         )
 
     _render_survey_fallback(df)
@@ -1192,7 +1223,7 @@ def _render_journey_tab(df: pd.DataFrame) -> None:
     start = _state_get_coordinate("journey_start")
     target = _state_get_coordinate("journey_target")
     if start is None or target is None:
-        st.warning("Journey generate karne ke liye Mood Space tab mein start aur target dono mood set karo.")
+        st.warning("Set both a start and target mood in the Mood Space tab to generate a journey.")
         return
 
     st.slider(
@@ -1200,14 +1231,14 @@ def _render_journey_tab(df: pd.DataFrame) -> None:
         min_value=8,
         max_value=24,
         key="journey_steps",
-        help="Longer playlist usually smoother emotional transition deti hai.",
+        help="A longer playlist gives a smoother emotional transition.",
     )
 
     with st.spinner("Generating your mood journey..."):
         journey_df = _build_journey_dataframe(df)
 
     if journey_df.empty:
-        st.error("Current selection se journey generate nahi ho paayi.")
+        st.error("Failed to generate a journey from the current selection.")
         return
 
     c1, c2, c3 = st.columns(3)
@@ -1227,22 +1258,22 @@ def _render_journey_tab(df: pd.DataFrame) -> None:
         config={"scrollZoom": False, "displaylogo": False},
     )
     st.caption(
-        "Chart description: selected tracks ke through start mood se target mood tak generated path."
+        "Chart description: path generated through selected tracks from start mood to target mood."
     )
 
     st.plotly_chart(journey_progress_figure(journey_df), use_container_width=True)
     st.caption(
-        "Chart description: har step par valence aur energy progression line chart."
+        "Chart description: valence and energy progression at each journey step."
     )
 
-    st.markdown("### Tumhara mood safar")
+    st.markdown("### Your mood journey")
     _render_song_cards(journey_df)
 
 
 def _render_data_lab_tab() -> None:
     """Render the professor-facing cleaning pipeline walkthrough."""
-    st.markdown("## Data Lab | डेटा प्रयोगशाला")
-    st.caption("Yah tab raw CSV cleaning pipeline ko step-by-step dikhata hai.")
+    st.markdown("## Data Lab")
+    st.caption("Step-by-step walkthrough of the raw CSV cleaning pipeline.")
 
     if not RAW_DATA_PATH.exists():
         st.info(
@@ -1285,7 +1316,10 @@ def _render_data_lab_tab() -> None:
         right.dataframe(clean_df.head(5), use_container_width=True)
 
         st.markdown("### Feature correlation snapshot")
-        st.pyplot(feature_correlation_heatmap(clean_df))
+        try:
+            st.pyplot(feature_correlation_heatmap(clean_df))
+        except Exception as e:
+            st.error(f"Correlation heatmap failed to render: {e}")
 
         if LOG_PATH.exists():
             with st.expander("Validation log"):
@@ -1294,7 +1328,7 @@ def _render_data_lab_tab() -> None:
 
 def _render_how_it_works_tab(df: pd.DataFrame) -> None:
     """Render the professor-demo explanation tab."""
-    st.markdown("## How It Works | यह कैसे काम करता है")
+    st.markdown("## How It Works")
     st.markdown(
         f"""
 MoodTune turns **{len(df):,} songs** into a navigable emotional map.
@@ -1356,11 +1390,34 @@ def main() -> None:
     _render_ambient_word_layer()
     _render_initialized_header(df)
 
+    st.markdown(
+        """
+<button class="theme-toggle" onclick="
+  var b = document.documentElement;
+  b.dataset.theme = b.dataset.theme === 'light' ? '' : 'light';
+" title="Toggle light/dark theme">&#9728;</button>
+<style>
+.theme-toggle {
+  position: fixed; top: 16px; right: 16px; z-index: 9999;
+  background: var(--glass-bg, rgba(255,255,255,0.04));
+  border: 1px solid var(--glass-border, rgba(255,255,255,0.10));
+  color: var(--text-primary, #f0f0f0);
+  border-radius: 50%; width: 36px; height: 36px;
+  cursor: pointer; font-size: 1rem; line-height: 1;
+  backdrop-filter: blur(20px);
+  transition: background 0.2s ease;
+}
+.theme-toggle:hover { background: rgba(255,255,255,0.12); }
+</style>
+""",
+        unsafe_allow_html=True,
+    )
+
     tabs = st.tabs([
-        "Mood Space (मूड मैप)",
-        "Journey (सफ़र)",
-        "Data Lab (डेटा)",
-        "How It Works (कैसे)",
+        "Mood Space",
+        "Journey",
+        "Data Lab",
+        "How It Works",
     ])
     with tabs[0]:
         _render_mood_space_tab(df)
