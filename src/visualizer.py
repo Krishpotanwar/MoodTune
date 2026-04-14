@@ -507,7 +507,7 @@ def mood_space_3d_figure(
                             sorted(unique_genres)[-1],
                         ],
                         tickfont=dict(color=_PINK, size=9),
-                        titlefont=dict(color=_PINK, size=10),
+                        title_font=dict(color=_PINK, size=10),
                     ),
                 ),
                 customdata=np.stack(

@@ -205,10 +205,10 @@ def _render_selection_summary() -> None:
             key="selection_mode",
             horizontal=False,
         )
-        if st.button("Clear start", use_container_width=True):
+        if st.button("Clear start", width="stretch"):
             _clear_coordinate("journey_start")
             st.rerun()
-        if st.button("Clear target", use_container_width=True):
+        if st.button("Clear target", width="stretch"):
             _clear_coordinate("journey_target")
             st.rerun()
 
@@ -226,7 +226,7 @@ def _render_text_mapper() -> None:
             placeholder="I just finished a long exam and want to zone out",
             label_visibility="collapsed",
         )
-        if st.button("Map text to start mood", key="nlp_start_button", use_container_width=True):
+        if st.button("Map text to start mood", key="nlp_start_button", width="stretch"):
             result = text_to_mood_vector(start_text)
             st.session_state["nlp_start_result"] = result
             _set_coordinate("journey_start", result["coordinate"], "NLP")
@@ -247,7 +247,7 @@ def _render_text_mapper() -> None:
             placeholder="Take me from drained to bright and energized",
             label_visibility="collapsed",
         )
-        if st.button("Map text to target mood", key="nlp_target_button", use_container_width=True):
+        if st.button("Map text to target mood", key="nlp_target_button", width="stretch"):
             result = text_to_mood_vector(target_text)
             st.session_state["nlp_target_result"] = result
             _set_coordinate("journey_target", result["coordinate"], "NLP")
@@ -277,11 +277,11 @@ def _render_survey_question(step: int) -> None:
 
     col_back, _, col_next = st.columns([1, 1, 1])
     with col_back:
-        if step > 1 and st.button("Back", key=f"survey_back_{step}", use_container_width=True):
+        if step > 1 and st.button("Back", key=f"survey_back_{step}", width="stretch"):
             st.session_state["survey_step"] -= 1
             st.rerun()
     with col_next:
-        if st.button("Next", key=f"survey_next_{step}", use_container_width=True, type="primary"):
+        if st.button("Next", key=f"survey_next_{step}", width="stretch", type="primary"):
             st.session_state["survey_answers"][question["id"]] = labels.index(selected) + 1
             st.session_state["survey_step"] += 1
             st.rerun()
@@ -299,13 +299,13 @@ def _render_survey_result(df: pd.DataFrame) -> None:
     )
     col_start, col_target, col_reset = st.columns(3)
     with col_start:
-        if st.button("Use survey as start mood", use_container_width=True):
+        if st.button("Use survey as start mood", width="stretch"):
             _set_coordinate("journey_start", result["coordinate"], "Survey")
     with col_target:
-        if st.button("Use survey as target mood", use_container_width=True):
+        if st.button("Use survey as target mood", width="stretch"):
             _set_coordinate("journey_target", result["coordinate"], "Survey")
     with col_reset:
-        if st.button("Reset survey", use_container_width=True):
+        if st.button("Reset survey", width="stretch"):
             _reset_survey()
             st.rerun()
 
@@ -315,7 +315,7 @@ def _render_survey_result(df: pd.DataFrame) -> None:
     st.dataframe(
         instant[["track_name", "artist_name", "genre", "similarity_pct"]],
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
     )
 
 
@@ -389,7 +389,7 @@ def _render_song_cards(journey_df: pd.DataFrame) -> None:
                     """
                 )
                 search_url = _spotify_search_url(track_name, artist)
-                st.link_button("Open Spotify", search_url, use_container_width=True)
+                st.link_button("Open Spotify", search_url, width="stretch")
 
 
 # ── tab renderers ──────────────────────────────────────────────────────────────
@@ -431,7 +431,7 @@ def _render_mood_space_tab(df: pd.DataFrame) -> None:
     )
     chart_event = st.plotly_chart(
         figure,
-        use_container_width=True,
+        width="stretch",
         key="mood_space_chart",
         on_select="rerun",
         selection_mode=("points",),
@@ -449,7 +449,7 @@ def _render_mood_space_tab(df: pd.DataFrame) -> None:
             fig_3d = mood_space_3d_figure(df)
         st.plotly_chart(
             fig_3d,
-            use_container_width=True,
+            width="stretch",
             config={"displaylogo": False},
         )
 
@@ -492,11 +492,11 @@ def _render_journey_tab(df: pd.DataFrame) -> None:
     )
     st.plotly_chart(
         mood_fig,
-        use_container_width=True,
+        width="stretch",
         config={"scrollZoom": False, "displaylogo": False},
     )
 
-    st.plotly_chart(journey_progress_figure(journey_df), use_container_width=True)
+    st.plotly_chart(journey_progress_figure(journey_df), width="stretch")
 
     st.markdown("### Your journey")
     _render_song_cards(journey_df)
@@ -544,8 +544,8 @@ def _render_data_lab_tab() -> None:
 
         st.markdown("### Before vs after")
         left, right = st.columns(2)
-        left.dataframe(raw_df.head(5), use_container_width=True)
-        right.dataframe(clean_df.head(5), use_container_width=True)
+        left.dataframe(raw_df.head(5), width="stretch")
+        right.dataframe(clean_df.head(5), width="stretch")
 
         st.markdown("### Feature correlation snapshot")
         st.pyplot(feature_correlation_heatmap(clean_df))
