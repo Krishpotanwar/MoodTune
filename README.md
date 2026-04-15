@@ -12,8 +12,7 @@
 
 ## About
 
-MoodTune is a music discovery app that treats emotional navigation like **path planning through mood space**. Instead of recommending songs that match one static mood, it generates a **journey playlist** — a sequence of 18 tracks that smoothly transitions from where you are emotionally to where you want to 
-
+MoodTune is a music discovery app that treats emotional navigation like **path planning through mood space**. Instead of recommending songs that match one static mood, it generates a **journey playlist** — a sequence of 18 tracks that smoothly transitions from where you are emotionally to where you want to be.
 The app maps every song into a 3D emotional coordinate (Valence × Energy × Danceability), then uses a **KDTree nearest-neighbour algorithm** to plot the optimal path between any two moods. The result is a visually explorable playlist where you can see the emotional arc unfold in real-time.
 
 ### New UI V2 highlights
