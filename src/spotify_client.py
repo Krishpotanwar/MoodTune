@@ -91,6 +91,116 @@ def search_track(name: str, artist: str) -> dict | None:
     return items[0] if items else None
 
 
+# ── Live search (multi-result) ────────────────────────────────────────────────
+
+
+def search_tracks_live(query: str, limit: int = 50) -> list[dict]:
+    """Search Spotify by free-form query and return up to `limit` track objects.
+
+    Each returned dict contains: id, name, artists (list), album, popularity,
+    preview_url, external_urls.  Returns [] on failure.
+    """
+    try:
+        token = get_token()
+    except Exception:
+        return []
+
+    # Spotify max per request is 50
+    limit = max(1, min(limit, 50))
+    try:
+        response = requests.get(
+            "https://api.spotify.com/v1/search",
+            headers={"Authorization": f"Bearer {token}"},
+            params={"q": query, "type": "track", "limit": limit},
+            timeout=10,
+        )
+    except requests.RequestException:
+        return []
+
+    if response.status_code != 200:
+        return []
+
+    return response.json().get("tracks", {}).get("items", [])
+
+
+def get_audio_features_batch(track_ids: list[str]) -> dict[str, dict]:
+    """Fetch audio features for up to 100 track IDs in one request.
+
+    Returns a dict mapping track_id → feature dict.
+    Features include: valence, energy, danceability, tempo, acousticness,
+    instrumentalness, liveness, speechiness, loudness.
+    Missing tracks are silently skipped.
+    """
+    if not track_ids:
+        return {}
+    try:
+        token = get_token()
+    except Exception:
+        return {}
+
+    # API hard limit is 100 IDs per request
+    ids_chunk = track_ids[:100]
+    try:
+        response = requests.get(
+            "https://api.spotify.com/v1/audio-features",
+            headers={"Authorization": f"Bearer {token}"},
+            params={"ids": ",".join(ids_chunk)},
+            timeout=10,
+        )
+    except requests.RequestException:
+        return {}
+
+    if response.status_code != 200:
+        return {}
+
+    features_list = response.json().get("audio_features", [])
+    return {
+        f["id"]: f
+        for f in features_list
+        if f is not None and "id" in f
+    }
+
+
+def search_and_enrich(query: str, limit: int = 50) -> list[dict]:
+    """Search Spotify and immediately attach audio features to each result.
+
+    Returns a flat list of dicts with both track metadata and audio features.
+    Tracks without audio features are still included (features default to None).
+    """
+    tracks = search_tracks_live(query, limit=limit)
+    if not tracks:
+        return []
+
+    track_ids = [t["id"] for t in tracks if t.get("id")]
+    features_map = get_audio_features_batch(track_ids)
+
+    result = []
+    for track in tracks:
+        tid = track.get("id", "")
+        feats = features_map.get(tid, {})
+        artists = [a["name"] for a in track.get("artists", [])]
+        images = track.get("album", {}).get("images", [])
+        result.append({
+            "track_id":      tid,
+            "track_name":    track.get("name", ""),
+            "artist_name":   ", ".join(artists),
+            "album":         track.get("album", {}).get("name", ""),
+            "popularity":    track.get("popularity", 0),
+            "preview_url":   track.get("preview_url"),
+            "spotify_url":   track.get("external_urls", {}).get("spotify", ""),
+            "album_art":     images[0]["url"] if images else None,
+            # Audio features (None if not available)
+            "valence":       feats.get("valence"),
+            "energy":        feats.get("energy"),
+            "danceability":  feats.get("danceability"),
+            "tempo":         feats.get("tempo"),
+            "acousticness":  feats.get("acousticness"),
+            "instrumentalness": feats.get("instrumentalness"),
+            "loudness":      feats.get("loudness"),
+        })
+    return result
+
+
 # ── Enrichment helper ─────────────────────────────────────────────────────────
 
 

@@ -1270,6 +1270,194 @@ def _render_journey_tab(df: pd.DataFrame) -> None:
     _render_song_cards(journey_df)
 
 
+
+def _render_live_search_tab() -> None:
+    """Live Spotify search: user query → fetch tracks → plot valence × energy scatter."""
+    st.markdown("## Live Search — Spotify Mood Map")
+    st.caption(
+        "Type any query (artist, song, mood, genre) to fetch live Spotify tracks "
+        "and see them plotted in mood space. Requires Spotify API credentials."
+    )
+
+    # ── credentials check ────────────────────────────────────────────────────
+    try:
+        from src.spotify_client import get_token, search_and_enrich  # noqa: PLC0415
+        get_token()
+        creds_ok = True
+    except Exception as exc:
+        st.warning(
+            f"Spotify credentials not configured: {exc}. "
+            "Add SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET to "
+            ".streamlit/secrets.toml or environment variables to enable this tab."
+        )
+        return
+
+    # ── search input ──────────────────────────────────────────────────────────
+    col_query, col_limit = st.columns([4, 1])
+    with col_query:
+        query = st.text_input(
+            "Search Spotify",
+            placeholder="e.g. sad rainy night, Taylor Swift, lo-fi chill, gym workout",
+            key="live_search_query",
+            label_visibility="collapsed",
+        )
+    with col_limit:
+        limit = st.selectbox("Results", [20, 30, 50], index=1, key="live_search_limit")
+
+    if not query:
+        st.info("Enter a search query above to fetch and plot live Spotify tracks.")
+        return
+
+    # ── fetch ─────────────────────────────────────────────────────────────────
+    with st.spinner(f"Fetching {limit} tracks from Spotify..."):
+        tracks = search_and_enrich(query, limit=limit)
+
+    if not tracks:
+        st.error("No results returned. Check your query or Spotify credentials.")
+        return
+
+    import pandas as pd  # noqa: PLC0415
+    import plotly.express as px  # noqa: PLC0415
+
+    df_live = pd.DataFrame(tracks)
+
+    # Tracks with audio features
+    df_with_feats = df_live.dropna(subset=["valence", "energy"]).copy()
+    n_total = len(df_live)
+    n_plotted = len(df_with_feats)
+
+    st.caption(
+        f"Found **{n_total}** tracks · **{n_plotted}** have audio features and appear on the chart."
+    )
+
+    # ── scatter plot ──────────────────────────────────────────────────────────
+    if df_with_feats.empty:
+        st.warning("None of the returned tracks have audio features. Try a different query.")
+    else:
+        df_with_feats["hover_label"] = (
+            df_with_feats["track_name"] + " — " + df_with_feats["artist_name"]
+        )
+        df_with_feats["popularity_size"] = df_with_feats["popularity"].fillna(20).clip(10, 100)
+
+        fig = px.scatter(
+            df_with_feats,
+            x="valence",
+            y="energy",
+            size="popularity_size",
+            color="danceability",
+            color_continuous_scale="Greys",
+            hover_name="hover_label",
+            hover_data={
+                "valence":          ":.2f",
+                "energy":           ":.2f",
+                "danceability":     ":.2f",
+                "tempo":            ":.0f",
+                "popularity":       True,
+                "popularity_size":  False,
+                "hover_label":      False,
+            },
+            labels={
+                "valence":      "Valence (sad → happy)",
+                "energy":       "Energy (chill → intense)",
+                "danceability": "Danceability",
+            },
+            title=f'Live Spotify: "{query}"',
+            size_max=28,
+        )
+        fig.update_layout(
+            paper_bgcolor="#000000",
+            plot_bgcolor="#000000",
+            font_color="#f0f0f0",
+            title_font_size=16,
+            xaxis=dict(
+                range=[-0.05, 1.05],
+                gridcolor="rgba(255,255,255,0.08)",
+                zerolinecolor="rgba(255,255,255,0.15)",
+                tickfont_color="#f0f0f0",
+            ),
+            yaxis=dict(
+                range=[-0.05, 1.05],
+                gridcolor="rgba(255,255,255,0.08)",
+                zerolinecolor="rgba(255,255,255,0.15)",
+                tickfont_color="#f0f0f0",
+            ),
+            coloraxis_colorbar=dict(
+                title="Dance",
+                tickfont_color="#f0f0f0",
+                titlefont_color="#f0f0f0",
+            ),
+            margin=dict(l=40, r=20, t=50, b=40),
+            height=520,
+        )
+        # Add quadrant labels
+        for text, x, y in [
+            ("Calm / Sad",   0.10, 0.10),
+            ("Energetic / Sad",  0.10, 0.92),
+            ("Calm / Happy",     0.92, 0.10),
+            ("Energetic / Happy",0.87, 0.92),
+        ]:
+            fig.add_annotation(
+                x=x, y=y, text=text,
+                showarrow=False,
+                font=dict(size=10, color="rgba(255,255,255,0.30)"),
+                xref="x", yref="y",
+            )
+
+        st.plotly_chart(fig, use_container_width=True, config={"displaylogo": False})
+
+    # ── track list ────────────────────────────────────────────────────────────
+    st.markdown("### Tracks")
+    rows = [df_live.iloc[i:i + 3] for i in range(0, len(df_live), 3)]
+    for row_df in rows:
+        cols = st.columns(3)
+        for col, (_, track) in zip(cols, row_df.iterrows(), strict=False):
+            track_name  = str(track.get("track_name", "Unknown"))
+            artist      = str(track.get("artist_name", ""))
+            album_art   = str(track.get("album_art", "")) or None
+            preview_url = str(track.get("preview_url", "")) or None
+            spotify_url = str(track.get("spotify_url", "")) or None
+            valence     = track.get("valence")
+            energy      = track.get("energy")
+            popularity  = int(track.get("popularity") or 0)
+
+            val_str = f"{valence:.2f}" if valence is not None else "—"
+            ene_str = f"{energy:.2f}" if energy is not None else "—"
+
+            art_html = (
+                f'<img class="song-card-art" src="{escape(album_art, quote=True)}" '
+                f'alt="album art" loading="lazy" style="width:52px;height:52px;border-radius:8px;object-fit:cover;">'
+                if album_art
+                else '<div style="width:52px;height:52px;border-radius:8px;background:rgba(255,255,255,0.05);'
+                     'display:flex;align-items:center;justify-content:center;font-size:1.3rem;">🎵</div>'
+            )
+            preview_html = (
+                f'<audio controls preload="none" src="{escape(preview_url, quote=True)}" '
+                f'style="width:100%;height:28px;margin-top:8px;filter:invert(1) opacity(0.7);"></audio>'
+                if preview_url
+                else ""
+            )
+            card_html = f"""
+<div class="song-card glass-card" style="margin-bottom:0.7rem;">
+  <div style="display:flex;gap:10px;align-items:flex-start;">
+    {art_html}
+    <div style="flex:1;min-width:0;">
+      <div class="song-card-title" style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{escape(track_name, quote=True)}</div>
+      <div class="song-card-artist" style="font-size:0.85rem;opacity:0.65;">{escape(artist, quote=True)}</div>
+      <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;">
+        <span class="stat-badge">V {val_str}</span>
+        <span class="stat-badge">E {ene_str}</span>
+        <span class="stat-badge">⭐ {popularity}</span>
+      </div>
+    </div>
+  </div>
+  {preview_html}
+</div>"""
+            with col:
+                st.html(card_html)
+                if spotify_url:
+                    st.link_button("Open Spotify", spotify_url, use_container_width=True)
+
+
 def _render_data_lab_tab() -> None:
     """Render the professor-facing cleaning pipeline walkthrough."""
     st.markdown("## Data Lab")
@@ -1416,6 +1604,7 @@ def main() -> None:
     tabs = st.tabs([
         "Mood Space",
         "Journey",
+        "Live Search",
         "Data Lab",
         "How It Works",
     ])
@@ -1424,8 +1613,10 @@ def main() -> None:
     with tabs[1]:
         _render_journey_tab(df)
     with tabs[2]:
-        _render_data_lab_tab()
+        _render_live_search_tab()
     with tabs[3]:
+        _render_data_lab_tab()
+    with tabs[4]:
         _render_how_it_works_tab(df)
 
 
