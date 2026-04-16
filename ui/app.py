@@ -1181,7 +1181,7 @@ def _render_mood_space_tab(df: pd.DataFrame) -> None:
         showing_full_3d = _state_get_show_full_3d()
         if len(df) > preview_sample and not showing_full_3d:
             if st.button(
-                f"Aur points dikhao ({len(df):,} total)",
+                f"Show all points ({len(df):,} total)",
                 key="show_more_3d",
                 use_container_width=True,
             ):
@@ -1189,7 +1189,7 @@ def _render_mood_space_tab(df: pd.DataFrame) -> None:
                 st.rerun()
         if len(df) > preview_sample and showing_full_3d:
             if st.button(
-                f"Fast preview par wapas ({preview_sample:,} points)",
+                f"Back to fast preview ({preview_sample:,} points)",
                 key="show_less_3d",
                 use_container_width=True,
             ):
@@ -1215,10 +1215,36 @@ def _render_mood_space_tab(df: pd.DataFrame) -> None:
 
     _render_survey_fallback(df)
 
+    _render_contributors_panel()
+
+
+_CONTRIBUTORS: tuple[tuple[str, str], ...] = (
+    ("Mohisha Punwatkar", "Idea Lead · Creative Lead · Project Lead"),
+    ("Ruchita Bhende", "UX Designer"),
+    ("Krish Potanwar", "Engineering · Data · Build"),
+)
+
+
+def _render_contributors_panel() -> None:
+    """Render the project contributors block on the Mood Space tab."""
+    cards = "".join(
+        f'<div class="contributor-card">'
+        f'<div class="contributor-name">{escape(name)}</div>'
+        f'<div class="contributor-role">{escape(role)}</div>'
+        f'</div>'
+        for name, role in _CONTRIBUTORS
+    )
+    st.html(
+        f'<div class="contributors-panel">'
+        f'<h4>Contributors</h4>'
+        f'<div class="contributors-grid">{cards}</div>'
+        f'</div>'
+    )
+
 
 def _render_journey_tab(df: pd.DataFrame) -> None:
     """Render the generated journey playlist and supporting charts."""
-    st.markdown("## Journey Playlist | Mood Safar")
+    st.markdown("## Journey Playlist")
 
     start = _state_get_coordinate("journey_start")
     target = _state_get_coordinate("journey_target")
@@ -1227,7 +1253,7 @@ def _render_journey_tab(df: pd.DataFrame) -> None:
         return
 
     st.slider(
-        "Journey length | Safar steps",
+        "Journey length",
         min_value=8,
         max_value=24,
         key="journey_steps",
@@ -1271,7 +1297,7 @@ def _render_journey_tab(df: pd.DataFrame) -> None:
 
 
 
-def _render_live_search_tab() -> None:
+def _render_live_search_tab(local_df: pd.DataFrame | None = None) -> None:
     """Live Spotify search: user query → fetch tracks → plot valence × energy scatter."""
     st.markdown("## Live Search — Spotify Mood Map")
     st.caption(
@@ -1310,7 +1336,7 @@ def _render_live_search_tab() -> None:
 
     # ── fetch ─────────────────────────────────────────────────────────────────
     with st.spinner(f"Fetching {limit} tracks from Spotify..."):
-        tracks = search_and_enrich(query, limit=limit)
+        tracks = search_and_enrich(query, limit=limit, local_df=local_df)
 
     if not tracks:
         st.error("No results returned. Check your query or Spotify credentials.")
@@ -1332,7 +1358,12 @@ def _render_live_search_tab() -> None:
 
     # ── scatter plot ──────────────────────────────────────────────────────────
     if df_with_feats.empty:
-        st.warning("None of the returned tracks have audio features. Try a different query.")
+        st.warning(
+            "None of these Spotify tracks match the local Kaggle dataset, so audio "
+            "features (valence, energy, danceability) could not be attached. "
+            "Spotify's public audio-features endpoint is deprecated for new apps. "
+            "Try a more mainstream query (artist name, hit song) for better matches."
+        )
     else:
         df_with_feats["hover_label"] = (
             df_with_feats["track_name"] + " — " + df_with_feats["artist_name"]
@@ -1458,60 +1489,110 @@ def _render_live_search_tab() -> None:
                     st.link_button("Open Spotify", spotify_url, use_container_width=True)
 
 
+@st.cache_data(show_spinner=False)
+def _fetch_raw_dataset_for_lab() -> tuple[pd.DataFrame, str, Path]:
+    """Return (raw_df, source_label, raw_path_to_use) for the Data Lab tab.
+
+    Prefers the local file when present; otherwise downloads from HuggingFace
+    Hub (same source as load_full_dataset). Works on Streamlit Cloud read-only
+    filesystems by returning the HF-cached path directly.
+    """
+    if RAW_DATA_PATH.exists():
+        return pd.read_csv(RAW_DATA_PATH), f"local file: {RAW_DATA_PATH.name}", RAW_DATA_PATH
+    try:
+        from huggingface_hub import hf_hub_download  # noqa: PLC0415
+    except ImportError as exc:
+        raise RuntimeError(
+            "huggingface_hub is required for online Data Lab. "
+            "Run: pip install huggingface_hub"
+        ) from exc
+    local_path_str = hf_hub_download(
+        repo_id="maharshipandya/spotify-tracks-dataset",
+        filename="dataset.csv",
+        repo_type="dataset",
+    )
+    local_path = Path(local_path_str)
+    return pd.read_csv(local_path), "HuggingFace Hub (maharshipandya/spotify-tracks-dataset)", local_path
+
+
 def _render_data_lab_tab() -> None:
     """Render the professor-facing cleaning pipeline walkthrough."""
     st.markdown("## Data Lab")
     st.caption("Step-by-step walkthrough of the raw CSV cleaning pipeline.")
 
-    if not RAW_DATA_PATH.exists():
-        st.info(
-            "Demo mode is active. "
-            "Add the full Kaggle CSV at `data/raw/spotify_tracks.csv` to run the cleaning pipeline live."
-        )
+    if not st.button("Run validation pipeline", type="primary"):
+        if RAW_DATA_PATH.exists():
+            st.caption(f"Raw CSV ready at `{RAW_DATA_PATH}`.")
+        else:
+            st.caption("No local raw CSV — will stream from HuggingFace when you click Run.")
         return
 
-    if st.button("Run validation pipeline", type="primary"):
-        raw_df = pd.read_csv(RAW_DATA_PATH)
+    try:
+        with st.spinner("Fetching raw dataset..."):
+            raw_df, source_label, raw_path = _fetch_raw_dataset_for_lab()
+    except Exception as exc:
+        st.error(f"Failed to fetch raw dataset: {exc}")
+        return
 
-        with st.spinner("Running cleaning pipeline..."):
-            clean_df = run_pipeline(RAW_DATA_PATH, CLEAN_DATA_PATH, LOG_PATH)
-        steps = get_cleaning_steps_log()
+    st.caption(f"Source: {source_label} · {len(raw_df):,} raw rows")
 
-        load_full_dataset.clear()
-        _get_recommender_model.clear()
-        _get_journey_tree.clear()
+    # Stage outputs under /tmp on read-only filesystems (Streamlit Cloud)
+    clean_path = CLEAN_DATA_PATH
+    log_path = LOG_PATH
+    try:
+        clean_path.parent.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        from tempfile import gettempdir  # noqa: PLC0415
+        clean_path = Path(gettempdir()) / "spotify_tracks_clean.csv"
+    try:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        from tempfile import gettempdir  # noqa: PLC0415
+        log_path = Path(gettempdir()) / "validation_summary.txt"
 
-        st.success(f"Pipeline complete. {len(clean_df):,} clean rows are ready.")
-        metric_cols = st.columns(4)
-        metric_cols[0].metric("Raw rows", f"{len(raw_df):,}")
-        metric_cols[1].metric("Clean rows", f"{len(clean_df):,}")
-        metric_cols[2].metric("Retention", f"{len(clean_df) / len(raw_df) * 100:.1f}%")
-        metric_cols[3].metric("Genres", str(clean_df["genre"].nunique()))
-
-        st.markdown("### Cleaning steps")
-        for step in steps:
-            with st.expander(f"Step {step['step']}: {step['name']}", expanded=step["removed"] > 0):
-                cols = st.columns(3)
-                cols[0].metric("Before", f"{step['before']:,}")
-                cols[1].metric("After", f"{step['after']:,}")
-                cols[2].metric("Removed", f"{step['removed']:,}")
-                if step["detail"]:
-                    st.caption(step["detail"])
-
-        st.markdown("### Before vs after")
-        left, right = st.columns(2)
-        left.dataframe(raw_df.head(5), use_container_width=True)
-        right.dataframe(clean_df.head(5), use_container_width=True)
-
-        st.markdown("### Feature correlation snapshot")
+    with st.spinner("Running cleaning pipeline..."):
         try:
-            st.pyplot(feature_correlation_heatmap(clean_df))
-        except Exception as e:
-            st.error(f"Correlation heatmap failed to render: {e}")
+            clean_df = run_pipeline(raw_path, clean_path, log_path)
+        except Exception as exc:
+            st.error(f"Pipeline failed: {exc}")
+            return
+    steps = get_cleaning_steps_log()
 
-        if LOG_PATH.exists():
-            with st.expander("Validation log"):
-                st.code(LOG_PATH.read_text(encoding="utf-8"), language="text")
+    load_full_dataset.clear()
+    _get_recommender_model.clear()
+    _get_journey_tree.clear()
+
+    st.success(f"Pipeline complete. {len(clean_df):,} clean rows are ready.")
+    metric_cols = st.columns(4)
+    metric_cols[0].metric("Raw rows", f"{len(raw_df):,}")
+    metric_cols[1].metric("Clean rows", f"{len(clean_df):,}")
+    metric_cols[2].metric("Retention", f"{len(clean_df) / len(raw_df) * 100:.1f}%")
+    metric_cols[3].metric("Genres", str(clean_df["genre"].nunique()))
+
+    st.markdown("### Cleaning steps")
+    for step in steps:
+        with st.expander(f"Step {step['step']}: {step['name']}", expanded=step["removed"] > 0):
+            cols = st.columns(3)
+            cols[0].metric("Before", f"{step['before']:,}")
+            cols[1].metric("After", f"{step['after']:,}")
+            cols[2].metric("Removed", f"{step['removed']:,}")
+            if step["detail"]:
+                st.caption(step["detail"])
+
+    st.markdown("### Before vs after")
+    left, right = st.columns(2)
+    left.dataframe(raw_df.head(5), use_container_width=True)
+    right.dataframe(clean_df.head(5), use_container_width=True)
+
+    st.markdown("### Feature correlation snapshot")
+    try:
+        st.pyplot(feature_correlation_heatmap(clean_df))
+    except Exception as e:
+        st.error(f"Correlation heatmap failed to render: {e}")
+
+    if log_path.exists():
+        with st.expander("Validation log"):
+            st.code(log_path.read_text(encoding="utf-8"), language="text")
 
 
 def _render_how_it_works_tab(df: pd.DataFrame) -> None:
@@ -1613,7 +1694,7 @@ def main() -> None:
     with tabs[1]:
         _render_journey_tab(df)
     with tabs[2]:
-        _render_live_search_tab()
+        _render_live_search_tab(df)
     with tabs[3]:
         _render_data_lab_tab()
     with tabs[4]:

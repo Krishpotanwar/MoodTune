@@ -14,6 +14,7 @@ from __future__ import annotations
 import base64
 import os
 from functools import lru_cache
+from typing import Any
 
 import requests
 
@@ -161,11 +162,69 @@ def get_audio_features_batch(track_ids: list[str]) -> dict[str, dict]:
     }
 
 
-def search_and_enrich(query: str, limit: int = 50) -> list[dict]:
-    """Search Spotify and immediately attach audio features to each result.
+# Feature columns we read from local dataset fallback
+_FEATURE_COLS = (
+    "valence", "energy", "danceability", "tempo",
+    "acousticness", "instrumentalness", "loudness",
+)
 
-    Returns a flat list of dicts with both track metadata and audio features.
-    Tracks without audio features are still included (features default to None).
+
+def _enrich_with_local_features(
+    tracks: list[dict], local_df: "Any | None",  # noqa: F821
+) -> list[dict]:
+    """Attach audio features from the local Kaggle dataset when available.
+
+    Matches by track_id first, then by (lowercased track_name, first artist).
+    Mutates tracks in place and returns it.
+    """
+    if local_df is None or local_df.empty:
+        return tracks
+
+    id_lookup = {str(tid): row for tid, row in local_df.set_index("track_id").iterrows()}
+    name_lookup: dict[tuple[str, str], Any] = {}  # noqa: F821
+    for _, row in local_df.iterrows():
+        key = (
+            str(row.get("track_name", "")).strip().lower(),
+            str(row.get("artist_name", "")).split(",")[0].strip().lower(),
+        )
+        if key[0] and key not in name_lookup:
+            name_lookup[key] = row
+
+    for track in tracks:
+        if any(track.get(col) is not None for col in _FEATURE_COLS):
+            continue
+        row = id_lookup.get(track.get("track_id", ""))
+        if row is None:
+            key = (
+                track.get("track_name", "").strip().lower(),
+                track.get("artist_name", "").split(",")[0].strip().lower(),
+            )
+            row = name_lookup.get(key)
+        if row is None:
+            continue
+        for col in _FEATURE_COLS:
+            if col in row.index:
+                val = row[col]
+                try:
+                    track[col] = float(val) if val is not None else None
+                except (TypeError, ValueError):
+                    track[col] = None
+    return tracks
+
+
+def search_and_enrich(
+    query: str,
+    limit: int = 50,
+    local_df: "Any | None" = None,  # noqa: F821
+) -> list[dict]:
+    """Search Spotify and attach audio features to each result.
+
+    Spotify deprecated the Client-Credentials audio-features endpoint in late
+    2024 for new apps; when that call returns empty, we fall back to matching
+    tracks against the local Kaggle dataset by track_id (or name+artist).
+
+    Returns a flat list of dicts with track metadata and audio features.
+    Tracks without features are still included (features default to None).
     """
     tracks = search_tracks_live(query, limit=limit)
     if not tracks:
@@ -189,7 +248,6 @@ def search_and_enrich(query: str, limit: int = 50) -> list[dict]:
             "preview_url":   track.get("preview_url"),
             "spotify_url":   track.get("external_urls", {}).get("spotify", ""),
             "album_art":     images[0]["url"] if images else None,
-            # Audio features (None if not available)
             "valence":       feats.get("valence"),
             "energy":        feats.get("energy"),
             "danceability":  feats.get("danceability"),
@@ -198,6 +256,10 @@ def search_and_enrich(query: str, limit: int = 50) -> list[dict]:
             "instrumentalness": feats.get("instrumentalness"),
             "loudness":      feats.get("loudness"),
         })
+
+    # Fallback enrichment when Spotify features endpoint is blocked (403/deprecated)
+    if not features_map:
+        _enrich_with_local_features(result, local_df)
     return result
 
 
